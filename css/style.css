@@ -739,6 +739,21 @@ body {
 .auth-modal-footer { display: flex; gap: 8px; margin-top: 24px; }
 .auth-modal-footer button { flex: 1; }
 
+/* Maintenance Section */
+.maintenance-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+.version-label {
+  font-size: 10px;
+  color: var(--text-secondary);
+  opacity: 0.5;
+  margin-top: 12px;
+  text-align: center;
+}
+
 /* ── Toasts ── */
 .toast-container {
   position: fixed;

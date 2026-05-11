@@ -45,6 +45,8 @@
   const appShell       = document.getElementById('app-shell');
   const appFrame       = document.getElementById('app-frame');
   const shellQuitBtn   = document.getElementById('shell-quit-btn');
+  const appUpdateBtn   = document.getElementById('app-update-btn');
+  const appResetBtn    = document.getElementById('app-reset-btn');
 
   // ─── Bootstrap ───────────────────────────────────────────────────────────
   function boot() {
@@ -349,6 +351,34 @@
     };
     reader.readAsDataURL(file);
     popupIconInput.value = '';
+  });
+
+  // ─── Maintenance ──────────────────────────────────────────────────────────
+  appUpdateBtn.addEventListener('click', async () => {
+    if ('serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (reg) {
+        showToast('Checking for updates...', 'info');
+        await reg.update();
+        showToast('App is up to date.', 'success');
+      }
+    }
+  });
+
+  appResetBtn.addEventListener('click', async () => {
+    if (confirm('This will clear the app cache and reload. Continue?')) {
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (let registration of registrations) {
+          await registration.unregister();
+        }
+      }
+      const names = await caches.keys();
+      for (let name of names) {
+        await caches.delete(name);
+      }
+      window.location.reload(true);
+    }
   });
 
   // ─── Toast ────────────────────────────────────────────────────────────────
