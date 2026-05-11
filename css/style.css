@@ -661,7 +661,7 @@ body {
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.token-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 28px; text-align: center; opacity: 0.8; }13.5px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 20px; text-align: center; }
+.token-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 28px; text-align: center; opacity: 0.8; }
 .token-desc code {
   background: rgba(255,255,255,0.07);
   border-radius: 4px;
