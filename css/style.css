@@ -590,15 +590,24 @@ body {
   to   { transform: scale(1) translateY(0); opacity: 1; }
 }
 
-.token-title { font-size: 20px; font-weight: 700; color: var(--text-primary); margin-bottom: 20px; text-align: center; }
+.token-title { 
+  font-size: 18px; 
+  font-weight: 700; 
+  color: var(--text-primary); 
+  margin-bottom: 24px; 
+  text-align: center; 
+  letter-spacing: 0.02em; 
+  text-transform: uppercase; 
+  opacity: 0.9; 
+}
 
 /* Settings Tabs */
 .settings-nav {
   display: flex;
-  background: rgba(255,255,255,0.03);
+  background: rgba(0, 0, 0, 0.2);
   padding: 4px;
-  border-radius: var(--radius-lg);
-  margin-bottom: 24px;
+  border-radius: var(--radius-md);
+  margin-bottom: 32px;
   border: 1px solid var(--border);
 }
 .settings-nav-item {
@@ -609,31 +618,34 @@ body {
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 10px 4px;
-  border-radius: var(--radius-md);
+  letter-spacing: 0.08em;
+  padding: 10px 2px;
+  border-radius: 10px;
   cursor: pointer;
   transition: all var(--transition);
+  opacity: 0.6;
 }
 .settings-nav-item.active {
-  background: rgba(255,255,255,0.08);
-  color: var(--text-primary);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  background: var(--accent);
+  color: #fff;
+  opacity: 1;
+  box-shadow: 0 4px 12px rgba(79, 142, 247, 0.25);
 }
-.settings-nav-item:hover:not(.active) { color: var(--text-primary); }
+.settings-nav-item:hover:not(.active) { color: var(--text-primary); opacity: 0.9; }
 
 .settings-tab-panel {
   display: none;
-  animation: tab-fade-in 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: tab-fade-in 0.35s cubic-bezier(0.23, 1, 0.32, 1);
+  padding: 4px 0;
 }
 .settings-tab-panel.active { display: block; }
 
 @keyframes tab-fade-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.token-desc { font-size: 13.5px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 20px; text-align: center; }
+.token-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 28px; text-align: center; opacity: 0.8; }13.5px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 20px; text-align: center; }
 .token-desc code {
   background: rgba(255,255,255,0.07);
   border-radius: 4px;
@@ -646,6 +658,7 @@ body {
 .token-input-wrap {
   position: relative;
   width: 100%;
+  margin-bottom: 20px;
 }
 
 .token-input {
@@ -676,15 +689,24 @@ body {
 }
 
 .token-help-link {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--accent);
   text-decoration: none;
-  opacity: 0.8;
+  display: inline-block;
+  margin-bottom: 32px;
+  opacity: 0.7;
   transition: opacity var(--transition);
 }
 .token-help-link:hover { opacity: 1; text-decoration: underline; }
 
-.token-save { width: 100%; padding: 12px; font-size: 15px; margin-bottom: 8px; }
+.token-save { 
+  width: 100%; 
+  padding: 14px; 
+  font-size: 13px; 
+  font-weight: 700; 
+  text-transform: uppercase; 
+  letter-spacing: 0.08em; 
+}
 
 /* ── Auth / Cloud Sync ── */
 .auth-divider {
@@ -709,18 +731,28 @@ body {
 .auth-section {
   width: 100%;
   text-align: center;
+  padding: 8px 0;
 }
-.auth-hint { font-size: 12px; color: var(--text-secondary); margin-bottom: 12px; }
-.auth-btn-group { display: flex; gap: 8px; justify-content: center; }
+.auth-hint { font-size: 13px; color: var(--text-secondary); margin-bottom: 24px; line-height: 1.5; }
+.auth-btn-group { display: flex; gap: 12px; justify-content: center; }
 
 .user-pill {
   background: rgba(255,255,255,0.04);
   border: 1px solid var(--border);
-  padding: 8px 14px;
+  padding: 10px 16px;
   border-radius: var(--radius-xl);
   display: inline-flex;
   align-items: center;
   gap: 12px;
+  margin-bottom: 12px;
+}
+
+.auth-status-hint {
+  font-size: 11px;
+  color: var(--success);
+  opacity: 0.45;
+  margin-top: 16px;
+  letter-spacing: 0.02em;
 }
 .user-email-text { font-size: 12px; font-weight: 500; color: var(--text-primary); }
 .logout-link {
