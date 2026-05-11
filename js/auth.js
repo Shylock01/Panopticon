@@ -82,6 +82,7 @@
         // User is logged out
         loggedOutGroup.removeAttribute('hidden');
         loggedInGroup.setAttribute('hidden', '');
+        if (window.Main) window.Main.setTabBadge('settings-tab-cloud', true);
       }
     });
   }

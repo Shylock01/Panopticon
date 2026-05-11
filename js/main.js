@@ -47,6 +47,10 @@
   const shellQuitBtn   = document.getElementById('shell-quit-btn');
   const appUpdateBtn   = document.getElementById('app-update-btn');
   const appResetBtn    = document.getElementById('app-reset-btn');
+  const settingsBadge  = document.getElementById('settings-badge');
+  const badgeTabLink   = document.getElementById('badge-tab-link');
+  const badgeTabLogin  = document.getElementById('badge-tab-login');
+  const badgeTabSystem = document.getElementById('badge-tab-system');
 
   // ─── Settings Tabs ────────────────────────────────────────────────────────
   document.querySelectorAll('.settings-nav-item').forEach(btn => {
@@ -57,14 +61,50 @@
       const targetId = btn.dataset.tab;
       document.querySelectorAll('.settings-tab-panel').forEach(p => p.classList.remove('active'));
       document.getElementById(targetId).classList.add('active');
+
+      // Clear badges for the visited tab
+      if (targetId === 'settings-tab-connect') badgeTabLink.setAttribute('hidden', '');
+      if (targetId === 'settings-tab-cloud')   badgeTabLogin.setAttribute('hidden', '');
+      if (targetId === 'settings-tab-system')  badgeTabSystem.setAttribute('hidden', '');
+      checkGlobalBadge();
     });
   });
+
+  function checkGlobalBadge() {
+    const anyTabBadge = !badgeTabLink.hasAttribute('hidden') || 
+                        !badgeTabLogin.hasAttribute('hidden') || 
+                        !badgeTabSystem.hasAttribute('hidden');
+    if (!anyTabBadge) settingsBadge.setAttribute('hidden', '');
+  }
+
+  // ─── Badge API ─────────────────────────────────────────────────────────────
+  function setTabBadge(tabId, visible) {
+    let badge;
+    if (tabId === 'settings-tab-connect') badge = badgeTabLink;
+    if (tabId === 'settings-tab-cloud')   badge = badgeTabLogin;
+    if (tabId === 'settings-tab-system')  badge = badgeTabSystem;
+
+    if (!badge) return;
+
+    if (visible) {
+      badge.removeAttribute('hidden');
+      settingsBadge.removeAttribute('hidden');
+    } else {
+      badge.setAttribute('hidden', '');
+      checkGlobalBadge();
+    }
+  }
+
+  window.Main = {
+    setTabBadge
+  };
 
   // ─── Bootstrap ───────────────────────────────────────────────────────────
   function boot() {
     const token = Store.getToken();
     if (!token) {
       showTokenScreen();
+      setTabBadge('settings-tab-connect', true);
     } else {
       hideTokenScreen();
       initSphere();
@@ -372,7 +412,19 @@
       if (reg) {
         showToast('Checking for updates...', 'info');
         await reg.update();
-        showToast('App is up to date.', 'success');
+        
+        // Wait a second to see if a new worker is detected
+        setTimeout(() => {
+          if (reg.installing || reg.waiting) {
+            showToast('Update found! Installing...', 'success');
+            badgeTabSystem.removeAttribute('hidden');
+            settingsBadge.removeAttribute('hidden');
+          } else {
+            showToast('App is up to date.', 'success');
+            badgeTabSystem.setAttribute('hidden', '');
+            checkGlobalBadge();
+          }
+        }, 1200);
       }
     }
   });

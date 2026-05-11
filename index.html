@@ -44,11 +44,12 @@
         <img src="icon-1920.png" class="logo-img" alt="Panopticon Logo" aria-hidden="true" width="26" height="26">
         <span class="logo-text">PANOPTICON</span>
       </div>
-      <button id="settings-btn" class="icon-btn" aria-label="Open settings / reconnect GitHub" title="Settings">
+      <button id="settings-btn" class="icon-btn" aria-label="Open settings" title="Settings">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
           <circle cx="12" cy="12" r="3"/>
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
         </svg>
+        <span id="settings-badge" class="nav-badge" hidden></span>
       </button>
     </div>
   </header>
@@ -167,9 +168,15 @@
       <h1 id="token-title" class="token-title">Settings</h1>
       
       <div class="settings-nav">
-        <button class="settings-nav-item active" data-tab="settings-tab-connect">Link</button>
-        <button class="settings-nav-item" data-tab="settings-tab-cloud">Login</button>
-        <button class="settings-nav-item" data-tab="settings-tab-system">System</button>
+        <button class="settings-nav-item active" data-tab="settings-tab-connect">
+          Link <span id="badge-tab-link" class="tab-badge" hidden></span>
+        </button>
+        <button class="settings-nav-item" data-tab="settings-tab-cloud">
+          Login <span id="badge-tab-login" class="tab-badge" hidden></span>
+        </button>
+        <button class="settings-nav-item" data-tab="settings-tab-system">
+          System <span id="badge-tab-system" class="tab-badge" hidden></span>
+        </button>
       </div>
 
       <!-- Tab 1: Connect -->
@@ -236,7 +243,7 @@
           <button id="app-update-btn" class="btn btn-outline btn-sm btn-full">Check for Updates</button>
           <button id="app-reset-btn" class="btn btn-danger-outline btn-sm btn-full">Hard Reset App Cache</button>
         </div>
-        <div class="version-label">v1.1.3</div>
+        <div class="version-label">v1.1.4</div>
       </div>
     </div>
     </div>
@@ -293,6 +300,7 @@
           reg.update();
 
           reg.onupdatefound = () => {
+            if (window.Main) window.Main.setTabBadge('settings-tab-system', true);
             const installingWorker = reg.installing;
             installingWorker.onstatechange = () => {
               if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
