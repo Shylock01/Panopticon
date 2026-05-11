@@ -44,13 +44,18 @@
   const toastContainer = document.getElementById('toast-container');
   const appShell       = document.getElementById('app-shell');
   const appFrame       = document.getElementById('app-frame');
-  const shellQuitBtn   = document.getElementById('shell-quit-btn');
+  const shellTab           = document.getElementById('shell-tab');
+  const shellControls      = document.getElementById('shell-controls');
+  const shellBackgroundBtn = document.getElementById('shell-background-btn');
+  const shellCloseBtn      = document.getElementById('shell-close-btn');
   const appUpdateBtn   = document.getElementById('app-update-btn');
   const appResetBtn    = document.getElementById('app-reset-btn');
   const settingsBadge  = document.getElementById('settings-badge');
   const badgeTabLink   = document.getElementById('badge-tab-link');
   const badgeTabLogin  = document.getElementById('badge-tab-login');
   const badgeTabSystem = document.getElementById('badge-tab-system');
+
+  const backgroundApps = new Set(); // repoNames
 
   // ─── Settings Tabs ────────────────────────────────────────────────────────
   document.querySelectorAll('.settings-nav-item').forEach(btn => {
@@ -313,18 +318,59 @@
     e.preventDefault();
     if (!activePopupApp) return;
     
-    appFrame.src = activePopupApp.pagesUrl;
+    // If it's already in background, just show it. Otherwise load it.
+    if (!backgroundApps.has(activePopupApp.repoName)) {
+      appFrame.src = activePopupApp.pagesUrl;
+    }
+    
     appShell.removeAttribute('hidden');
+    appShell.classList.remove('app-shell--hiding');
+    shellControls.setAttribute('hidden', ''); // Ensure controls are closed on launch
     hideNodePopup();
   });
 
-  shellQuitBtn.addEventListener('click', () => {
+  shellTab.addEventListener('click', () => {
+    const isHidden = shellControls.hasAttribute('hidden');
+    if (isHidden) {
+      shellControls.removeAttribute('hidden');
+      shellTab.setAttribute('aria-expanded', 'true');
+    } else {
+      shellControls.setAttribute('hidden', '');
+      shellTab.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  shellBackgroundBtn.addEventListener('click', () => {
+    if (!activePopupApp) return;
+    const repo = activePopupApp.repoName;
+    
+    backgroundApps.add(repo);
+    sphere?.setNodeBackground(repo, true);
+    
+    appShell.classList.add('app-shell--hiding');
+    setTimeout(() => {
+      appShell.setAttribute('hidden', '');
+      appShell.classList.remove('app-shell--hiding');
+    }, 400);
+    
+    showToast(`${repo} is now running in the background.`, 'success');
+  });
+
+  shellCloseBtn.addEventListener('click', () => {
+    if (!activePopupApp) return;
+    const repo = activePopupApp.repoName;
+    
+    backgroundApps.delete(repo);
+    sphere?.setNodeBackground(repo, false);
+    
     appShell.classList.add('app-shell--hiding');
     setTimeout(() => {
       appShell.setAttribute('hidden', '');
       appShell.classList.remove('app-shell--hiding');
       appFrame.src = 'about:blank';
-    }, 400); // Match CSS animation duration
+    }, 400);
+    
+    showToast(`${repo} closed.`, 'info');
   });
 
   popupUnlink.addEventListener('click', () => {

@@ -694,12 +694,29 @@ class PanopticonSphere {
       entry.nodeGroup.scale.setScalar(nextS);
 
       // Lerp glow opacity
+      let targetO = entry.targetGlow;
+      if (entry.isBackground) {
+        targetO = 0.4 + Math.sin(now * 0.003) * 0.4;
+      }
+
       const curO = entry.glowMat.opacity;
-      const nextO = curO + (entry.targetGlow - curO) * LERP_SPEED;
+      const nextO = curO + (targetO - curO) * LERP_SPEED;
       entry.glowMat.opacity = nextO;
     });
 
     this.renderer.render(this.scene, this.camera);
+  }
+
+  setNodeBackground(repoName, isBackground) {
+    const entry = this.nodes.get(repoName);
+    if (!entry) return;
+    entry.isBackground = isBackground;
+    if (isBackground) {
+      entry.glowMat.color.set(0x22ff88); // Pulsing green
+    } else {
+      entry.glowMat.color.set(0x4f8ef7); // Back to blue
+      entry.targetGlow = 0;
+    }
   }
 
   // Point the camera directly at a linked node by repo name.

@@ -1013,35 +1013,97 @@ body {
   to { transform: translateY(100%); opacity: 0; }
 }
 
-.shell-header {
+.shell-tab-container {
   position: absolute;
-  top: 16px;
-  left: 16px;
-  z-index: 2001;
-  pointer-events: none;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-.shell-quit-btn {
-  pointer-events: auto;
-  background: rgba(14, 18, 32, 0.8);
+.shell-tab {
+  width: 60px;
+  height: 24px;
+  background: rgba(30, 40, 60, 0.7);
   backdrop-filter: blur(12px);
   border: 1px solid var(--border-bright);
-  color: var(--text-primary);
-  padding: 8px 16px;
-  border-radius: var(--radius-xl);
+  border-top: none;
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+.shell-tab:hover {
+  height: 28px;
+  background: rgba(40, 60, 100, 0.8);
+}
+.shell-tab-handle {
+  width: 24px;
+  height: 3px;
+  background: rgba(255,255,255,0.4);
+  border-radius: 2px;
+}
+
+.shell-controls {
+  margin-top: 8px;
+  display: flex;
+  gap: 6px;
+  background: rgba(14, 18, 32, 0.88);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border-bright);
+  padding: 6px;
+  border-radius: 20px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.7);
+  animation: shell-slide-down 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+}
+
+@keyframes shell-slide-down {
+  from { transform: translateY(-20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.shell-ctrl-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 8px 16px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  border-radius: 12px;
   transition: all var(--transition);
+  white-space: nowrap;
 }
-.shell-quit-btn:hover {
-  background: var(--bg-mid);
-  transform: translateY(-2px);
-  border-color: var(--accent);
+.shell-ctrl-btn:hover {
+  background: rgba(255,255,255,0.1);
+  color: var(--text-primary);
+}
+.shell-ctrl-btn svg {
+  opacity: 0.8;
+}
+.shell-ctrl-btn:hover svg {
+  opacity: 1;
+}
+
+.shell-ctrl-btn--danger:hover {
+  background: rgba(255, 60, 80, 0.2);
+  color: #ff5f7d;
+}
+.shell-ctrl-divider {
+  width: 1px;
+  height: 20px;
+  background: rgba(255,255,255,0.15);
+  align-self: center;
 }
 
 #app-frame {
