@@ -1,0 +1,189 @@
+Hello! Let's start a new project. 
+This is a sort of test for a much larger project, but I want to see what we can do with just vibe coding.
+
+This project is called Panopticon, and it's what I hope to act as a central hub for all future applications I create.
+
+Below is the base concept of what I want, as well as some stylistic parameters that I want to have incorporated.
+- This application can be a html file, where it will all get uploaded to Github and utilize other git pages to
+pull the various other applications together (unless there is a potentially better option?)
+- The main UI interface is a 3D geodesic sphere made of triangles. The user should have the ablity to navigate around
+the sphere, rotating it with a click and drag or with touch controls (this needs to be functional on both computer
+and phone.) This part is the most crucial to get smooth and be intuitive and responsive. The sphere should have an
+obsidian material style. And the background should be dark with a subtle light that is being eclipsed by the sphere
+from behind.
+- There should be a plus symbol in the bottom center that allows the user to link new apps. The Panopticon should have
+access to my github repos and so when new repos are made, and I click on the plus symbol, the list of repos should 
+appear and I can choose which ones I want to have available to open via the Panopticon.
+- Any app that is linked should appear as a selectable node of the surface of the sphere. The app's icon should be
+the node. When a user scrolls across the surface of the sphere to the node, and taps the app, it should open up a small
+popup window that says the name of the app, and a button to launch it. There should also be a button to unlink the
+app from the Panopticon. This function should have an additional step that prevents the user from accidentally unlinking
+an app that they want to keep.
+
+This is the main concept of the app. Your job is to create all the various files and folder structure that will be necessary
+to create the app as I have described. There are more features I plan to add on, but I want to get this base 
+structure down first.
+
+I have created a .txt file in this directory that contains this prompt for you to review whenever you need. Use it as well as an
+update log of each addition, adjustment, or correction that is made to the Panopticon.
+
+Let's get started!
+
+UPDATE LOG:
+
+- 5/10/2026 (Luke) - Initial prompt created.
+
+- 5/10/2026 (Antigravity) - Initial build complete. Created the following file structure:
+    index.html         — Main app shell with full ARIA/SEO markup and Three.js importmap
+    css/style.css      — Full design system: dark theme tokens, glassmorphism, animations
+    js/store.js        — localStorage state (linked apps + GitHub token)
+    js/github.js       — GitHub REST API v3 calls, favicon fetching, letter-icon generator
+    js/sphere.js       — Three.js geodesic sphere (IcosahedronGeometry detail=3), obsidian
+                         MeshPhysicalMaterial, eclipse halo, quaternion drag rotation with
+                         inertia, touch + mouse support, raycasting for node click/hover
+    js/main.js         — Bootstrap: token auth flow, repo drawer, link/unlink logic, toasts
+
+  Verified: sphere renders (dark obsidian + triangle edges + eclipse halo), rotation works
+  on desktop, token screen appears on first load, all UI elements visible and styled.
+  Pending: GitHub token entry with a real PAT to test live repo fetching and node linking.
+
+- 5/10/2026 (Antigravity) - Fixed file:// compatibility. Root cause: ES modules
+  (type="module" + importmap) don't work when opening index.html directly via
+  file:// in Chrome due to CORS restrictions on cross-origin module imports.
+  Fix: Converted all JS to plain scripts using IIFE global namespaces (window.Store,
+  window.GH, window.PanopticonSphere). Replaced importmap + three.module.js with
+  three.min.js loaded as a regular <script> tag. Scripts now load in dependency order.
+  App now works by simply double-clicking index.html in Chrome — no server required.
+
+- 5/10/2026 (Antigravity) - Fixed GitHub token authentication. Root cause: classic PATs
+  (ghp_ prefix) return 401 when sent with 'Authorization: Bearer' header. Fix: changed
+  to 'Authorization: token' prefix, which GitHub supports for all PAT types. Also added
+  required headers (Accept: application/vnd.github+json, X-GitHub-Api-Version: 2022-11-28)
+  and improved error messages to show the actual GitHub API error instead of a generic one.
+
+- 5/10/2026 (Antigravity) - Fixed sphere not rendering after token save. Root cause: sphere.js
+  called new THREE.Vector3() at the top level (line 24) during script parse time. If Three.js
+  CDN hadn't finished loading, THREE was undefined and sphere.js crashed silently — leaving
+  window.PanopticonSphere undefined so the sphere never initialized. Fixes applied:
+  1. Moved SLOT_POSITIONS (Fibonacci sphere) initialization into the PanopticonSphere constructor
+     so THREE is only referenced at runtime (after all scripts load), not at parse time.
+  2. Added typeof THREE guard in constructor with a clear error message.
+  3. Wrapped initSphere() in try/catch so any errors surface as user-visible toasts.
+  4. Added 'defer' to all <script> tags so Three.js and local scripts download in parallel
+     and execute in guaranteed order after the DOM is parsed.
+
+- 5/10/2026 (Antigravity) - Fixed sphere still failing after defer fix. Root cause:
+  Three.js r163 dropped the UMD (three.min.js) build entirely — build/ only contains
+  three.cjs and three.module.js (ES module). The CDN URL was returning 404.
+  Fix 1: Downgraded to three@0.150.0 which is the last version to include three.min.js
+  (the global UMD build that sets window.THREE). URL updated to:
+  https://cdn.jsdelivr.net/npm/three@0.150.0/build/three.min.js
+  Fix 2: Changed main.js to boot() via window.onload event instead of immediately,
+  guaranteeing THREE is fully available even if CDN script has any loading delay.
+
+- 5/10/2026 (Luke) - Rotation becomes inconsistent and "messed up" after dragging around.
+  Wanted the sphere to feel stationary while the view circles around it.
+
+- 5/10/2026 (Antigravity) - Rewrote rotation system from quaternion sphere-rotation to
+  spherical coordinate camera-orbit. Root cause: chaining quaternion multiplications
+  (qY * group.quaternion * qX) accumulates floating-point error and couples the axes
+  over time, causing the "messed up" feeling after extended dragging.
+  Fix: sphere and nodes are now stationary at the origin. Dragging updates two scalar
+  angles (theta = azimuth, phi = elevation) and moves the camera to the corresponding
+  spherical coordinate position, always looking at the origin.
+  Benefits: zero gimbal lock, zero drift, dragging left/right ALWAYS orbits horizontally,
+  dragging up/down ALWAYS orbits vertically, phi is clamped to avoid pole singularities.
+
+- 5/10/2026 (Luke) - Vertical drag direction is inverted. Eclipse halo drifts as camera
+  orbits instead of staying locked behind the sphere.
+
+- 5/10/2026 (Luke) - Added a slow, steady pulse of light that emanates from selected apps.
+
+- 5/10/2026 (Antigravity) - Implemented a "Pulse Shell" effect:
+  1. Custom Shader: Created a slightly larger transparent sphere shell using a
+     ShaderMaterial with additive blending.
+  2. Pulse Logic: The shader calculates angular distance from the selected node's
+     origin and renders an expanding ring that resets every 2 seconds.
+  3. Visual Polish: Added edge fading so the pulse naturally dissipates as it
+     approaches the opposite pole.
+  4. Automation: The pulse activates automatically on focus and deactivates on clear.
+
+- 5/10/2026 (Luke) - Reduced pulse opacity by 50% and added edit buttons for app descriptions and icons.
+
+- 5/10/2026 (Antigravity) - Implemented popup customization features:
+  1. Subtle Pulse: Lowered the shader alpha from 0.45 to 0.22 for a less prominent glow.
+  2. Description Editing: Added a pencil icon and textarea toggle in the node popup.
+     Changes are saved to localStorage via Store.updateAppDescription.
+  3. Icon Customization: Integrated a file uploader on the icon image. Selected
+     images are converted to Data URLs and updated in both the Store and the
+     active 3D sphere node instantly.
+  4. UI/UX: Added glassmorphism style edit buttons that appear on hover for a
+     cleaner look.
+
+- 5/10/2026 (Luke) - Overhauled the popup edit flow. Added a dedicated edit button, icon scaling, and reorganized the action buttons.
+
+- 5/10/2026 (Antigravity) - Redesigned the node popup customization flow:
+  1. Header Controls: Moved "Edit" to a text link in the top-right header alongside the close button.
+  2. Mode Switching: Implemented a distinct "Edit Mode" that hides launch buttons and
+     shows "Unlink" and "Save Changes" instead.
+  3. Visual Feedback: Added a smooth CSS transition that scales the icon up to 100px
+     and rounds it into a circle when editing.
+  4. Contextual UI: The pen icon and description textarea only appear in edit mode
+     to keep the main view clean and focused on navigation.
+
+- 5/10/2026 (Antigravity) - Fixed both issues:
+  1. Vertical inversion: changed phi delta from '+dy' to '-dy' so dragging UP raises the
+     view (natural globe feel — like dragging a globe toward you to see the top).
+  2. Halo tracking: stored references to haloMesh and coronaMesh. In _updateCamera(),
+     computes the unit vector from origin toward camera, then positions the halos at
+     -camDir*9 and -camDir*5.6 (directly opposite the camera), then calls lookAt() on
+     each so they always face toward the camera. Eclipse now stays locked behind sphere.
+
+- 5/10/2026 (Luke) - Sphere material too shiny/metallic. Lights are locked in world
+  space so shading changes as you orbit.
+
+- 5/10/2026 (Antigravity) - Fixed material and lighting:
+  1. Material: replaced MeshPhysicalMaterial (clearcoat, metalness=0.55) with
+     MeshStandardMaterial (roughness=0.82, metalness=0.04, color=0x1c1c24). Dark gray
+     with diffuse shading — matte stone/obsidian look, no harsh specular highlights.
+  2. Camera-parented lights: added camera to scene graph, then attached key and fill
+     DirectionalLights as camera children. They now orbit with the camera, so the
+     sphere shading is identical from every viewing angle.
+  3. Back light also tracks: updated _updateCamera() to move _backLight to -camDir*8
+     so the eclipse glow source always stays directly behind the sphere.
+
+- 5/10/2026 (Luke) - Added a close (X) button to the GitHub token screen for better navigation.
+
+- 5/10/2026 (Antigravity) - Added a styled close button to the token-card in index.html,
+  wired it in main.js to call hideTokenScreen(), and updated style.css to ensure
+  correct absolute positioning within the card.
+
+- 5/10/2026 (Luke) - Reduced emission brightness on icons, smoothed hover animations, and added a glow effect.
+
+- 5/10/2026 (Antigravity) - Improved node visuals and interaction:
+  1. Lighting: Lowered ambient and key light intensities to stop icons from being
+     over-exposed and improve legibility.
+  2. Smooth Animation: Replaced instant hover scaling with a LERP-based system in the
+     _animate loop for silky smooth transitions.
+  3. Subtle Scaling: Reduced HOVER_SCALE to 1.12 for a more premium feel.
+  4. Hover Glow: Added a circular glow sprite behind each node that fades in/out
+     on hover, using additive blending.
+
+- 5/10/2026 (Luke) - Icon was lopsided, rotated it 90 degrees CCW to correct orientation.
+
+- 5/10/2026 (Luke) - Reduced idle rotation speed of the sphere by half.
+
+- 5/10/2026 (Luke) - Added focus snapping and elastic animations when an app is selected.
+  Kept the outer glow active while the popup is open.
+
+- 5/10/2026 (Antigravity) - Implemented a focus-tracking system:
+  1. Elastic Snapping: Used a spring-based physics model (spring + damp) in the _animate
+     loop to move the camera to the selected node with an organic, "snappy" feel.
+  2. Shortest Path: Added logic to handle theta wrapping so the camera always takes
+     the quickest route around the sphere.
+  3. Focus Lock: While a node is focused, idle rotation is disabled, and the node's
+     glow material stays at 100% opacity.
+  4. Integration: Wired the sphere's focus methods to the popup lifecycle in main.js.
+  
+
+

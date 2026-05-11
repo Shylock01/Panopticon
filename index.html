@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Panopticon — Your App Hub</title>
+  <meta name="description" content="Panopticon: a central hub for all your web applications, presented as an interactive 3D geodesic sphere.">
+  <meta name="theme-color" content="#020209">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Panopticon">
+  <meta property="og:description" content="A central hub for all your apps — navigate a living 3D sphere.">
+  <meta property="og:type" content="website">
+
+  <!-- Apple PWA -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="manifest" href="manifest.json">
+
+  <!-- Three.js r150 — last version with UMD global build (three.min.js) -->
+  <!-- Must be blocking (no defer) so THREE is defined before other scripts run -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.0/build/three.min.js"></script>
+</head>
+<body>
+
+  <!-- ── 3D Canvas ────────────────────────────────────────────── -->
+  <div id="canvas-container" aria-hidden="true">
+    <canvas id="sphere-canvas"></canvas>
+  </div>
+
+  <!-- ── Header ───────────────────────────────────────────────── -->
+  <header id="app-header" role="banner">
+    <div class="header-inner">
+      <div class="logo" role="img" aria-label="Panopticon logo">
+        <span class="logo-icon" aria-hidden="true">◈</span>
+        <span class="logo-text">PANOPTICON</span>
+      </div>
+      <button id="settings-btn" class="icon-btn" aria-label="Open settings / reconnect GitHub" title="Settings">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ── Add App Button ────────────────────────────────────────── -->
+  <button id="add-app-btn" class="add-btn" aria-label="Link a new application to the sphere" title="Link new app">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+      <line x1="12" y1="5" x2="12" y2="19"/>
+      <line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+  </button>
+
+  <!-- ── Repo Drawer ───────────────────────────────────────────── -->
+  <div id="repo-drawer" class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title-label" hidden>
+    <div class="drawer-backdrop" id="drawer-backdrop" aria-hidden="true"></div>
+    <div class="drawer-panel" role="document">
+      <div class="drawer-header">
+        <h2 id="drawer-title-label" class="drawer-title">Link an Application</h2>
+        <button id="drawer-close-btn" class="icon-btn" aria-label="Close repository drawer">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="drawer-search">
+        <input
+          type="text"
+          id="repo-search"
+          placeholder="Search repositories…"
+          autocomplete="off"
+          autocorrect="off"
+          spellcheck="false"
+          aria-label="Filter repositories by name"
+        >
+      </div>
+
+      <div id="repo-loading" class="repo-loading" role="status" hidden>
+        <div class="spinner" aria-hidden="true"></div>
+        <span>Fetching repositories…</span>
+      </div>
+
+      <div id="repo-empty" class="repo-empty" role="status" hidden>
+        <span>No repositories found.</span>
+      </div>
+
+      <div id="repo-list" class="repo-list" role="list" aria-label="GitHub repositories"></div>
+    </div>
+  </div>
+
+  <!-- ── Node Popup ────────────────────────────────────────────── -->
+  <div id="node-popup" class="node-popup" role="dialog" aria-modal="true" aria-labelledby="popup-app-name" hidden>
+    <div class="popup-top-actions">
+      <button id="popup-edit-trigger" class="popup-action-link" type="button">Edit</button>
+      <button id="popup-close-btn" class="icon-btn" aria-label="Close app popup">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="popup-icon-wrap">
+      <div class="popup-icon-container">
+        <img id="popup-icon" class="popup-icon" src="" alt="" aria-hidden="true">
+        <button id="popup-icon-edit-btn" class="popup-edit-badge" title="Change Icon" hidden>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+          </svg>
+        </button>
+        <input type="file" id="popup-icon-input" accept="image/*" hidden>
+      </div>
+    </div>
+
+    <div class="popup-body">
+      <h3 id="popup-app-name" class="popup-name"></h3>
+      <div id="popup-desc-view" class="popup-desc-view">
+        <p id="popup-app-desc" class="popup-desc"></p>
+      </div>
+      <div id="popup-desc-edit-wrap" class="popup-desc-edit-wrap" hidden>
+        <textarea id="popup-app-desc-edit" class="popup-desc-input" placeholder="Enter app description..."></textarea>
+      </div>
+    </div>
+
+    <div class="popup-actions">
+      <!-- View Mode Buttons -->
+      <a id="popup-launch-btn" class="btn btn-primary btn-full" href="#" target="_blank" rel="noopener noreferrer">
+        Launch App
+      </a>
+      
+      <!-- Edit Mode Buttons -->
+      <div id="popup-edit-actions" class="popup-edit-actions" hidden>
+        <button id="popup-unlink-btn" class="btn btn-danger" data-state="idle">
+          Unlink App
+        </button>
+        <button id="popup-save-btn" class="btn btn-primary">
+          Save Changes
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── GitHub Token Setup Screen ─────────────────────────────── -->
+  <div id="token-screen" class="token-screen" role="dialog" aria-modal="true" aria-labelledby="token-title">
+    <div class="token-card">
+      <button id="token-close-btn" class="popup-close icon-btn" aria-label="Close settings">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+      <div class="token-icon" aria-hidden="true">◈</div>
+      <h1 id="token-title" class="token-title">Welcome to Panopticon</h1>
+      <p class="token-desc">
+        Enter a GitHub Personal Access Token with <code>repo</code> scope to connect your repositories.
+        Your token is stored locally on this device only — it never leaves your browser.
+      </p>
+
+      <div class="token-input-wrap">
+        <input
+          type="password"
+          id="token-input"
+          class="token-input"
+          placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+          autocomplete="off"
+          autocorrect="off"
+          spellcheck="false"
+          aria-label="GitHub Personal Access Token"
+        >
+        <button id="token-toggle" class="icon-btn token-toggle" aria-label="Toggle token visibility" aria-pressed="false" type="button">
+          <svg id="eye-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+      </div>
+
+      <a
+        href="https://github.com/settings/tokens/new?description=Panopticon&scopes=repo,read:user"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="token-help-link"
+      >Create a token on GitHub →</a>
+
+      <button id="token-save-btn" class="btn btn-primary token-save">
+        Connect GitHub
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Toast Notifications ───────────────────────────────────── -->
+  <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="false"></div>
+
+  <!-- App scripts in dependency order (no defer needed — they're at end of body) -->
+  <script src="js/store.js"></script>
+  <script src="js/github.js"></script>
+  <script src="js/sphere.js"></script>
+  <script src="js/main.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js');
+    }
+  </script>
+</body>
+</html>
