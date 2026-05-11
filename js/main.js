@@ -265,8 +265,12 @@
   });
 
   shellQuitBtn.addEventListener('click', () => {
-    appShell.setAttribute('hidden', '');
-    appFrame.src = 'about:blank';
+    appShell.classList.add('app-shell--hiding');
+    setTimeout(() => {
+      appShell.setAttribute('hidden', '');
+      appShell.classList.remove('app-shell--hiding');
+      appFrame.src = 'about:blank';
+    }, 400); // Match CSS animation duration
   });
 
   popupUnlink.addEventListener('click', () => {

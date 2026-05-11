@@ -793,6 +793,15 @@ body {
   to { transform: translateY(0); opacity: 1; }
 }
 
+.app-shell--hiding {
+  animation: shell-slide-out 0.4s cubic-bezier(0.33, 1, 0.68, 1) forwards;
+}
+
+@keyframes shell-slide-out {
+  from { transform: translateY(0); opacity: 1; }
+  to { transform: translateY(100%); opacity: 0; }
+}
+
 .shell-header {
   position: absolute;
   top: 16px;
