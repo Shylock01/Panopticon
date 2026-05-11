@@ -163,8 +163,8 @@ class PanopticonSphere {
       this._coronaMesh.position.copy(camDir.clone().multiplyScalar(-5.6));
       this._coronaMesh.lookAt(this.camera.position);
 
-      // Scale glow based on distance so it doesn't "swallow" the sphere when zooming out
-      const glowScale = r / CAM_RADIUS;
+      // Scale glow INVERSELY to distance so it shrinks with the sphere when zooming out
+      const glowScale = CAM_RADIUS / r;
       this._haloMesh.scale.setScalar(glowScale);
       this._coronaMesh.scale.setScalar(glowScale);
     }
@@ -627,27 +627,34 @@ class PanopticonSphere {
 
     if (this._isHolding && !this._holdCancelled && !this._zoomLocked) {
       const elapsed = now - this._holdStartTime;
-      const progress = Math.min(1, elapsed / 3000);
+      const DISPLAY_DELAY = 500;  // Don't show indicator for first 0.5s
+      const LOCK_TIME     = 1500; // Total time to lock (faster now!)
 
-      if (indicator) {
-        indicator.removeAttribute('hidden');
-        indicator.style.transform = `translate(${this._ptrPos.x}px, ${this._ptrPos.y}px) translate(-50%, -50%)`;
-      }
-      if (ring) {
-        const circumference = 2 * Math.PI * 26; // r=26 from SVG
-        ring.style.strokeDashoffset = circumference * (1 - progress);
-      }
+      if (elapsed > DISPLAY_DELAY) {
+        const progress = Math.min(1, (elapsed - DISPLAY_DELAY) / (LOCK_TIME - DISPLAY_DELAY));
 
-      if (progress >= 1) {
-        this._zoomLocked = true;
-        this._defaultRadius = this._targetRadius; // Lock current zoom
         if (indicator) {
-          indicator.classList.add('locked');
-          indicator.querySelector('.zoom-indicator-text').textContent = 'LOCKED';
+          indicator.removeAttribute('hidden');
+          indicator.style.transform = `translate(${this._ptrPos.x}px, ${this._ptrPos.y}px) translate(-50%, -50%)`;
         }
-        setTimeout(() => {
-          if (indicator) indicator.setAttribute('hidden', '');
-        }, 1500);
+        if (ring) {
+          const circumference = 2 * Math.PI * 26; // r=26 from SVG
+          ring.style.strokeDashoffset = circumference * (1 - progress);
+        }
+
+        if (progress >= 1) {
+          this._zoomLocked = true;
+          this._defaultRadius = this._targetRadius; // Lock current zoom
+          if (indicator) {
+            indicator.classList.add('locked');
+            indicator.querySelector('.zoom-indicator-text').textContent = 'LOCKED';
+          }
+          setTimeout(() => {
+            if (indicator) indicator.setAttribute('hidden', '');
+          }, 1500);
+        }
+      } else {
+        if (indicator) indicator.setAttribute('hidden', '');
       }
     } else if (!this._zoomLocked) {
       if (indicator) indicator.setAttribute('hidden', '');
