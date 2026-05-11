@@ -6,6 +6,7 @@ window.Store = (() => {
   const KEYS = {
     LINKED_APPS: 'panopticon_linked_apps',
     GITHUB_TOKEN: 'panopticon_github_token',
+    ZOOM_STATE: 'panopticon_zoom_state',
   };
 
   // --- Token ----------------------------------------------------------------
@@ -48,5 +49,20 @@ window.Store = (() => {
     localStorage.setItem(KEYS.LINKED_APPS, JSON.stringify(apps));
   }
 
-  return { getToken, saveToken, clearToken, getLinkedApps, isLinked, linkApp, unlinkApp, updateAppIcon, updateAppDescription };
+  // --- Zoom Persistence -----------------------------------------------------
+  function getZoom() {
+    try { return JSON.parse(localStorage.getItem(KEYS.ZOOM_STATE)) || null; }
+    catch { return null; }
+  }
+
+  function saveZoom(zoom) {
+    localStorage.setItem(KEYS.ZOOM_STATE, JSON.stringify(zoom));
+  }
+
+  return { 
+    getToken, saveToken, clearToken, 
+    getLinkedApps, isLinked, linkApp, unlinkApp, 
+    updateAppIcon, updateAppDescription,
+    getZoom, saveZoom 
+  };
 })();

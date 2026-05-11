@@ -70,10 +70,12 @@ class PanopticonSphere {
     this._targetPhi       = null;
 
     // Zoom state
-    this._radius         = CAM_RADIUS;
-    this._targetRadius   = CAM_RADIUS;
-    this._defaultRadius  = CAM_RADIUS;
-    this._zoomLocked     = false;
+    const savedZoom = (typeof Store !== 'undefined') ? Store.getZoom() : null;
+    this._radius         = savedZoom ? savedZoom.radius : CAM_RADIUS;
+    this._targetRadius   = this._radius;
+    this._defaultRadius  = this._radius;
+    this._zoomLocked     = savedZoom ? savedZoom.locked : false;
+    
     this._pinchDist      = 0;
     this._holdStartTime  = 0;
     this._isHolding      = false;
@@ -645,6 +647,9 @@ class PanopticonSphere {
         if (progress >= 1) {
           this._zoomLocked = true;
           this._defaultRadius = this._targetRadius; // Lock current zoom
+          if (typeof Store !== 'undefined') {
+            Store.saveZoom({ radius: this._defaultRadius, locked: true });
+          }
           if (indicator) {
             indicator.classList.add('locked');
             indicator.querySelector('.zoom-indicator-text').textContent = 'LOCKED';
@@ -665,9 +670,13 @@ class PanopticonSphere {
     // Actually, user said "lock and save zoom to that point", implying a persistent state.
     // If they zoom again, it should revert to the *newly saved* point. That's what we have.
     // If they want to CHANGE the locked point, they just hold again.
-    if (this._zoomLocked && this._isHolding && !this._holdCancelled && (Date.now() - this._holdStartTime > 100)) {
+    if (this._zoomLocked && this._isHolding && !this._holdCancelled && (now - this._holdStartTime > 100)) {
        // Allow re-locking if holding again
-       if (Date.now() - this._holdStartTime > 500) this._zoomLocked = false; 
+       if (now - this._holdStartTime > 500) {
+         this._zoomLocked = false;
+         this._defaultRadius = CAM_RADIUS;
+         if (typeof Store !== 'undefined') Store.saveZoom(null);
+       }
     }
 
     // Update pulse time
