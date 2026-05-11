@@ -696,12 +696,19 @@ class PanopticonSphere {
       // Lerp glow opacity
       let targetO = entry.targetGlow;
       if (entry.isBackground) {
-        targetO = 0.4 + Math.sin(now * 0.003) * 0.4;
+        // More prominent pulse: 0.3 to 1.0 opacity
+        targetO = 0.65 + Math.sin(now * 0.004) * 0.35;
       }
 
       const curO = entry.glowMat.opacity;
       const nextO = curO + (targetO - curO) * LERP_SPEED;
       entry.glowMat.opacity = nextO;
+
+      // Also slightly scale up the glow if backgrounded
+      const targetScale = entry.isBackground ? (NODE_R * 4.2) : (NODE_R * 3.5);
+      const curScale = entry.nodeGroup.children.find(c => c.type === 'Sprite').scale.x;
+      const nextScale = curScale + (targetScale - curScale) * LERP_SPEED;
+      entry.nodeGroup.children.find(c => c.type === 'Sprite').scale.set(nextScale, nextScale, 1);
     });
 
     this.renderer.render(this.scene, this.camera);

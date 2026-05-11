@@ -253,6 +253,17 @@ body {
   border-color: var(--accent);
   box-shadow: 0 0 16px var(--accent-glow);
 }
+.btn-success {
+  background: #28a745;
+  color: #fff;
+  border-color: #28a745;
+  box-shadow: 0 0 16px rgba(40, 167, 69, 0.4);
+}
+.btn-success:hover {
+  background: #218838;
+  box-shadow: 0 0 24px rgba(40, 167, 69, 0.6);
+  transform: translateY(-1px);
+}
 .btn-outline {
   background: rgba(255, 255, 255, 0.05);
   color: var(--text-primary);
