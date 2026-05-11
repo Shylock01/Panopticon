@@ -650,13 +650,25 @@ class PanopticonSphere {
           if (typeof Store !== 'undefined') {
             Store.saveZoom({ radius: this._defaultRadius, locked: true });
           }
+          
+          // Visual Feedback
           if (indicator) {
             indicator.classList.add('locked');
             indicator.querySelector('.zoom-indicator-text').textContent = 'LOCKED';
+            setTimeout(() => {
+                indicator.setAttribute('hidden', '');
+                indicator.classList.remove('locked');
+            }, 800);
           }
-          setTimeout(() => {
-            if (indicator) indicator.setAttribute('hidden', '');
-          }, 1500);
+
+          // Blue Double Flash
+          const flash = document.getElementById('zoom-flash');
+          if (flash) {
+            flash.removeAttribute('hidden');
+            setTimeout(() => flash.setAttribute('hidden', ''), 700);
+          }
+
+          this._holdCancelled = true; // Stop processing hold for this touch
         }
       } else {
         if (indicator) indicator.setAttribute('hidden', '');

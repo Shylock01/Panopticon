@@ -38,12 +38,16 @@
     
     <!-- Zoom Lock Indicator -->
     <div id="zoom-indicator" class="zoom-indicator" hidden>
-      <svg width="60" height="60" viewBox="0 0 60 60">
-        <circle class="zoom-ring-bg" cx="30" cy="30" r="26" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="3" />
-        <circle id="zoom-ring-progress" class="zoom-ring-progress" cx="30" cy="30" r="26" fill="none" stroke="var(--accent)" stroke-width="3" stroke-dasharray="163.36" stroke-dashoffset="163.36" stroke-linecap="round" />
-      </svg>
-      <div class="zoom-indicator-text">LOCKING</div>
+      <div class="zoom-indicator-ring">
+        <svg width="64" height="64" viewBox="0 0 64 64">
+          <circle cx="32" cy="32" r="26" class="zoom-ring-bg" />
+          <circle cx="32" cy="32" r="26" id="zoom-ring-progress" class="zoom-ring-fill" />
+        </svg>
+      </div>
+      <div class="zoom-indicator-text">HOLD TO LOCK</div>
     </div>
+
+    <div id="zoom-flash" class="zoom-flash" hidden></div>
   </div>
 
   <!-- ── Header ───────────────────────────────────────────────── -->
@@ -252,7 +256,7 @@
           <button id="app-update-btn" class="btn btn-outline btn-sm btn-full">Check for Updates</button>
           <button id="app-reset-btn" class="btn btn-danger-outline btn-sm btn-full">Hard Reset App Cache</button>
         </div>
-        <div class="version-label">v1.1.12</div>
+        <div class="version-label">v1.1.13</div>
       </div>
     </div>
     </div>
