@@ -260,8 +260,8 @@ body {
   box-shadow: 0 0 16px rgba(40, 167, 69, 0.4);
 }
 .btn-success:hover {
-  background: #218838;
-  box-shadow: 0 0 24px rgba(40, 167, 69, 0.6);
+  background: #34c759;
+  box-shadow: 0 0 24px rgba(52, 199, 89, 0.6);
   transform: translateY(-1px);
 }
 .btn-outline {
