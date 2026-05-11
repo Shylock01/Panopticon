@@ -1099,6 +1099,10 @@ body {
   background: rgba(255, 60, 80, 0.2);
   color: #ff5f7d;
 }
+.shell-ctrl-btn--success:hover {
+  background: rgba(80, 255, 120, 0.2);
+  color: #5fff8c;
+}
 .shell-ctrl-divider {
   width: 1px;
   height: 20px;

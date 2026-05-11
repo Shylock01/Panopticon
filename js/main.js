@@ -9,6 +9,7 @@
   let sphere        = null;
   let cachedRepos   = [];
   let activePopupApp = null;
+  let currentShellApp = null;
 
   // ─── DOM refs ────────────────────────────────────────────────────────────
   const canvas         = document.getElementById('sphere-canvas');
@@ -318,9 +319,11 @@
     e.preventDefault();
     if (!activePopupApp) return;
     
+    currentShellApp = activePopupApp;
+    
     // If it's already in background, just show it. Otherwise load it.
-    if (!backgroundApps.has(activePopupApp.repoName)) {
-      appFrame.src = activePopupApp.pagesUrl;
+    if (!backgroundApps.has(currentShellApp.repoName)) {
+      appFrame.src = currentShellApp.pagesUrl;
     }
     
     appShell.removeAttribute('hidden');
@@ -341,8 +344,8 @@
   });
 
   shellBackgroundBtn.addEventListener('click', () => {
-    if (!activePopupApp) return;
-    const repo = activePopupApp.repoName;
+    if (!currentShellApp) return;
+    const repo = currentShellApp.repoName;
     
     backgroundApps.add(repo);
     sphere?.setNodeBackground(repo, true);
@@ -351,14 +354,15 @@
     setTimeout(() => {
       appShell.setAttribute('hidden', '');
       appShell.classList.remove('app-shell--hiding');
+      currentShellApp = null;
     }, 400);
     
     showToast(`${repo} is now running in the background.`, 'success');
   });
 
   shellCloseBtn.addEventListener('click', () => {
-    if (!activePopupApp) return;
-    const repo = activePopupApp.repoName;
+    if (!currentShellApp) return;
+    const repo = currentShellApp.repoName;
     
     backgroundApps.delete(repo);
     sphere?.setNodeBackground(repo, false);
@@ -368,6 +372,7 @@
       appShell.setAttribute('hidden', '');
       appShell.classList.remove('app-shell--hiding');
       appFrame.src = 'about:blank';
+      currentShellApp = null;
     }, 400);
     
     showToast(`${repo} closed.`, 'info');
