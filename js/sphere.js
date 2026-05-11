@@ -499,7 +499,7 @@ class PanopticonSphere {
     const move = Math.hypot(dx, dy);
     this._dragDist += move;
 
-    if (move > 3) this._holdCancelled = true;
+    if (move > 10) this._holdCancelled = true;
 
     // Horizontal drag → orbit left/right (theta)
     this._theta -= dx * DRAG_SENS;
@@ -627,7 +627,7 @@ class PanopticonSphere {
     const indicator = document.getElementById('zoom-indicator');
     const ring = document.getElementById('zoom-ring-progress');
 
-    if (this._isHolding && !this._holdCancelled && !this._zoomLocked) {
+    if (this._isHolding && !this._holdCancelled) {
       const elapsed = now - this._holdStartTime;
       const DISPLAY_DELAY = 500;  // Don't show indicator for first 0.5s
       const LOCK_TIME     = 1500; // Total time to lock (faster now!)
@@ -661,22 +661,8 @@ class PanopticonSphere {
       } else {
         if (indicator) indicator.setAttribute('hidden', '');
       }
-    } else if (!this._zoomLocked) {
+    } else {
       if (indicator) indicator.setAttribute('hidden', '');
-    }
-
-    // If locked but user zooms again, break lock to allow new lock?
-    // Let's say any manual zoom or drag breaks current lock and allows a new 3s hold to re-lock.
-    // Actually, user said "lock and save zoom to that point", implying a persistent state.
-    // If they zoom again, it should revert to the *newly saved* point. That's what we have.
-    // If they want to CHANGE the locked point, they just hold again.
-    if (this._zoomLocked && this._isHolding && !this._holdCancelled && (now - this._holdStartTime > 100)) {
-       // Allow re-locking if holding again
-       if (now - this._holdStartTime > 500) {
-         this._zoomLocked = false;
-         this._defaultRadius = CAM_RADIUS;
-         if (typeof Store !== 'undefined') Store.saveZoom(null);
-       }
     }
 
     // Update pulse time

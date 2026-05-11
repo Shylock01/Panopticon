@@ -1,5 +1,5 @@
-// sw.js v1.1.11
-const CACHE_NAME = 'panopticon-v1.1.11';
+// sw.js v1.1.12
+const CACHE_NAME = 'panopticon-v1.1.12';
 const ASSETS = [
   './',
   'index.html',
