@@ -78,6 +78,8 @@ class PanopticonSphere {
     this._holdStartTime  = 0;
     this._isHolding      = false;
     this._holdCancelled  = false;
+    this._zoomLastActiveTime = 0;
+    this._ptrPos         = { x: 0, y: 0 };
 
     this._slotPositions = _fibPositions(64, SPHERE_RADIUS);
 
@@ -160,6 +162,11 @@ class PanopticonSphere {
       this._haloMesh.lookAt(this.camera.position);
       this._coronaMesh.position.copy(camDir.clone().multiplyScalar(-5.6));
       this._coronaMesh.lookAt(this.camera.position);
+
+      // Scale glow based on distance so it doesn't "swallow" the sphere when zooming out
+      const glowScale = r / CAM_RADIUS;
+      this._haloMesh.scale.setScalar(glowScale);
+      this._coronaMesh.scale.setScalar(glowScale);
     }
   }
 
@@ -424,7 +431,9 @@ class PanopticonSphere {
     // Mouse Wheel Zoom
     el.addEventListener('wheel', e => {
       e.preventDefault();
-      this._targetRadius = Math.max(4.0, Math.min(12.0, this._targetRadius + e.deltaY * 0.005));
+      const zoomSpeed = 0.015;
+      this._targetRadius = Math.max(4.0, Math.min(12.0, this._targetRadius + e.deltaY * zoomSpeed));
+      this._zoomLastActiveTime = Date.now();
     }, { passive: false });
 
     el.addEventListener('touchstart', e => { 
@@ -445,9 +454,10 @@ class PanopticonSphere {
       } else if (e.touches.length === 2) {
         const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
         const diff = d - this._pinchDist;
-        this._targetRadius = Math.max(4.0, Math.min(12.0, this._targetRadius - diff * 0.01));
+        this._targetRadius = Math.max(4.0, Math.min(12.0, this._targetRadius - diff * 0.025));
         this._pinchDist = d;
         this._holdCancelled = true;
+        this._zoomLastActiveTime = Date.now();
       }
     }, { passive: false });
 
@@ -469,6 +479,7 @@ class PanopticonSphere {
   _down(x, y) {
     this._isDragging = true;
     this._prevPtr = { x, y };
+    this._ptrPos = { x, y };
     this._velTheta = this._velPhi = this._dragDist = 0;
     this.canvas.style.cursor = 'grabbing';
 
@@ -479,6 +490,7 @@ class PanopticonSphere {
   }
 
   _move(x, y) {
+    this._ptrPos = { x, y };
     if (!this._isDragging) return;
     const dx = x - this._prevPtr.x;
     const dy = y - this._prevPtr.y;
@@ -594,8 +606,13 @@ class PanopticonSphere {
     // --- Zoom Revert & Locking Logic ---
     const REVERT_SPEED = 0.008; // How fast it drifts back to center
     const ZOOM_LERP    = 0.12;  // How fast radius snaps to target
+    const now = Date.now();
 
-    if (!this._zoomLocked) {
+    const shouldRevert = !this._zoomLocked && 
+                         !this._isHolding && 
+                         (now - this._zoomLastActiveTime > 5000);
+
+    if (shouldRevert) {
       // Gradually drift back to default distance
       this._targetRadius += (this._defaultRadius - this._targetRadius) * REVERT_SPEED;
     }
@@ -609,10 +626,13 @@ class PanopticonSphere {
     const ring = document.getElementById('zoom-ring-progress');
 
     if (this._isHolding && !this._holdCancelled && !this._zoomLocked) {
-      const elapsed = Date.now() - this._holdStartTime;
+      const elapsed = now - this._holdStartTime;
       const progress = Math.min(1, elapsed / 3000);
 
-      if (indicator) indicator.removeAttribute('hidden');
+      if (indicator) {
+        indicator.removeAttribute('hidden');
+        indicator.style.transform = `translate(${this._ptrPos.x}px, ${this._ptrPos.y}px) translate(-50%, -50%)`;
+      }
       if (ring) {
         const circumference = 2 * Math.PI * 26; // r=26 from SVG
         ring.style.strokeDashoffset = circumference * (1 - progress);

@@ -252,7 +252,7 @@
           <button id="app-update-btn" class="btn btn-outline btn-sm btn-full">Check for Updates</button>
           <button id="app-reset-btn" class="btn btn-danger-outline btn-sm btn-full">Hard Reset App Cache</button>
         </div>
-        <div class="version-label">v1.1.6</div>
+        <div class="version-label">v1.1.7</div>
       </div>
     </div>
     </div>
@@ -310,24 +310,16 @@
 
           reg.onupdatefound = () => {
             if (window.Main) window.Main.setTabBadge('settings-tab-system', true);
-            const installingWorker = reg.installing;
-            installingWorker.onstatechange = () => {
-              if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                // New version found, reload!
-                window.location.reload();
-              }
-            };
+            // We no longer auto-reload here to allow the notification dot to be seen.
+            // The new SW will activate on the next manual refresh or via the update button.
           };
         });
       });
 
       // Handle the case where the new SW takes control
-      let refreshing = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (!refreshing) {
-          window.location.reload();
-          refreshing = true;
-        }
+        // Optional: you could auto-reload here, but keeping it manual for now
+        // to ensure the user sees the "Update" notification.
       });
     }
   </script>
