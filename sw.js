@@ -1,5 +1,5 @@
-// sw.js v1.1.8
-const CACHE_NAME = 'panopticon-v1.1.8';
+// sw.js v1.1.9
+const CACHE_NAME = 'panopticon-v1.1.9';
 const ASSETS = [
   './',
   'index.html',
@@ -14,9 +14,15 @@ const ASSETS = [
   'js/auth.js'
 ];
 
-// Force immediate activation
+// Wait for explicit skipWaiting message
 self.addEventListener('install', (event) => {
-  self.skipWaiting();
+  // We no longer call skipWaiting() here automatically
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 // Clean up old caches immediately

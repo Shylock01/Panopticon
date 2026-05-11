@@ -305,21 +305,37 @@
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js').then(reg => {
-          // Check for updates on every load
-          reg.update();
-
-          reg.onupdatefound = () => {
-            if (window.Main) window.Main.setTabBadge('settings-tab-system', true);
-            // We no longer auto-reload here to allow the notification dot to be seen.
-            // The new SW will activate on the next manual refresh or via the update button.
+          // Helper to notify Main.js about the update
+          const notify = (worker) => {
+            if (!worker) return;
+            const check = () => {
+              if (worker.state === 'installed') {
+                if (window.Main) window.Main.setTabBadge('settings-tab-system', true);
+              }
+            };
+            check();
+            worker.addEventListener('statechange', check);
           };
+
+          // Handle existing waiting/installing workers on load
+          if (reg.waiting) notify(reg.waiting);
+          if (reg.installing) notify(reg.installing);
+
+          // Listen for future updates found in background
+          reg.onupdatefound = () => notify(reg.installing);
+          
+          // Check for updates every time the app is opened
+          reg.update();
         });
       });
 
-      // Handle the case where the new SW takes control
+      // When the new SW takes control, reload to show new content
+      let refreshing = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
-        // Optional: you could auto-reload here, but keeping it manual for now
-        // to ensure the user sees the "Update" notification.
+        if (!refreshing) {
+          window.location.reload();
+          refreshing = true;
+        }
       });
     }
   </script>

@@ -409,23 +409,30 @@
   appUpdateBtn.addEventListener('click', async () => {
     if ('serviceWorker' in navigator) {
       const reg = await navigator.serviceWorker.getRegistration();
-      if (reg) {
-        showToast('Checking for updates...', 'info');
-        await reg.update();
-        
-        // Wait a second to see if a new worker is detected
-        setTimeout(() => {
-          if (reg.installing || reg.waiting) {
-            showToast('Update found! Installing...', 'success');
-            badgeTabSystem.removeAttribute('hidden');
-            settingsBadge.removeAttribute('hidden');
-          } else {
-            showToast('App is up to date.', 'success');
-            badgeTabSystem.setAttribute('hidden', '');
-            checkGlobalBadge();
-          }
-        }, 1200);
+      if (!reg) return;
+
+      // If there's already a worker waiting, just activate it
+      if (reg.waiting) {
+        showToast('Activating update...', 'info');
+        reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        return;
       }
+
+      showToast('Checking for updates...', 'info');
+      await reg.update();
+      
+      // Short delay to see if an update was found
+      setTimeout(() => {
+        if (reg.installing) {
+          showToast('Update found! Downloading...', 'success');
+        } else if (reg.waiting) {
+          showToast('Update ready. Click again to apply.', 'success');
+        } else {
+          showToast('Panopticon is up to date.', 'success');
+          if (badgeTabSystem) badgeTabSystem.setAttribute('hidden', '');
+          checkGlobalBadge();
+        }
+      }, 1500);
     }
   });
 
