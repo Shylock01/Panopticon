@@ -48,6 +48,18 @@
   const appUpdateBtn   = document.getElementById('app-update-btn');
   const appResetBtn    = document.getElementById('app-reset-btn');
 
+  // ─── Settings Tabs ────────────────────────────────────────────────────────
+  document.querySelectorAll('.settings-nav-item').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.settings-nav-item').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      
+      const targetId = btn.dataset.tab;
+      document.querySelectorAll('.settings-tab-panel').forEach(p => p.classList.remove('active'));
+      document.getElementById(targetId).classList.add('active');
+    });
+  });
+
   // ─── Bootstrap ───────────────────────────────────────────────────────────
   function boot() {
     const token = Store.getToken();
