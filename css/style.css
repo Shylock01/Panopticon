@@ -774,6 +774,63 @@ body {
 .toast--error   { border-color: rgba(247, 80, 79, 0.35); color: #ff7070; }
 .toast--info    { border-color: var(--border-bright); color: var(--accent); }
 
+/* ── App Shell Overlay ── */
+.app-shell {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2000;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  animation: shell-slide-in 0.4s cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+@keyframes shell-slide-in {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.shell-header {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 2001;
+  pointer-events: none;
+}
+
+.shell-quit-btn {
+  pointer-events: auto;
+  background: rgba(14, 18, 32, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-bright);
+  color: var(--text-primary);
+  padding: 8px 16px;
+  border-radius: var(--radius-xl);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  transition: all var(--transition);
+}
+.shell-quit-btn:hover {
+  background: var(--bg-mid);
+  transform: translateY(-2px);
+  border-color: var(--accent);
+}
+
+#app-frame {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  background: #fff;
+}
+
 /* ── Responsive ── */
 @media (max-width: 480px) {
   #app-header { padding: 0 16px; height: 56px; }

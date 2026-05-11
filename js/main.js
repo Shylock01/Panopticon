@@ -42,6 +42,9 @@
   const popupIconEditBtn = document.getElementById('popup-icon-edit-btn');
   const popupIconInput   = document.getElementById('popup-icon-input');
   const toastContainer = document.getElementById('toast-container');
+  const appShell       = document.getElementById('app-shell');
+  const appFrame       = document.getElementById('app-frame');
+  const shellQuitBtn   = document.getElementById('shell-quit-btn');
 
   // ─── Bootstrap ───────────────────────────────────────────────────────────
   function boot() {
@@ -251,7 +254,20 @@
   }
 
   popupClose.addEventListener('click', hideNodePopup);
-  popupLaunch.addEventListener('click', hideNodePopup);
+  
+  popupLaunch.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (!activePopupApp) return;
+    
+    appFrame.src = activePopupApp.pagesUrl;
+    appShell.removeAttribute('hidden');
+    hideNodePopup();
+  });
+
+  shellQuitBtn.addEventListener('click', () => {
+    appShell.setAttribute('hidden', '');
+    appFrame.src = 'about:blank';
+  });
 
   popupUnlink.addEventListener('click', () => {
     if (popupUnlink.dataset.state === 'idle') {
