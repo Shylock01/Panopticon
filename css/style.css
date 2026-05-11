@@ -198,6 +198,25 @@ body {
   border-color: var(--accent);
   box-shadow: 0 0 16px var(--accent-glow);
 }
+.btn-outline {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+.btn-outline:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--border-bright);
+}
+.btn-danger-outline {
+  background: rgba(247, 80, 79, 0.05);
+  color: var(--danger);
+  border-color: rgba(247, 80, 79, 0.2);
+}
+.btn-danger-outline:hover {
+  background: rgba(247, 80, 79, 0.15);
+  border-color: var(--danger);
+}
+.btn-sm { padding: 6px 12px; font-size: 12px; }
 .btn-primary:hover {
   background: #6ba3ff;
   box-shadow: 0 0 28px var(--accent-glow);
@@ -606,6 +625,13 @@ body {
   to   { transform: scale(1) translateY(0); opacity: 1; }
 }
 
+.token-card .popup-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 10;
+}
+
 .token-title { 
   font-size: 18px; 
   font-weight: 700; 
@@ -625,6 +651,7 @@ body {
   border-radius: var(--radius-md);
   margin-bottom: 32px;
   border: 1px solid var(--border);
+  width: 100%;
 }
 .settings-nav-item {
   flex: 1;
@@ -635,7 +662,7 @@ body {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  padding: 10px 2px;
+  padding: 12px 4px;
   border-radius: 10px;
   cursor: pointer;
   transition: all var(--transition);
