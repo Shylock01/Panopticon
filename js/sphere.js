@@ -583,7 +583,14 @@ class PanopticonSphere {
     if (!entry) return;
     const norm = entry.nodeGroup.position.clone().normalize();
     this._targetPhi   = Math.acos(Math.max(-1, Math.min(1, norm.y)));
-    this._targetTheta = Math.atan2(norm.x, norm.z);
+    
+    // Shortest-path theta wrapping
+    let targetTheta = Math.atan2(norm.x, norm.z);
+    let diff = targetTheta - this._theta;
+    while (diff < -Math.PI) { targetTheta += 2 * Math.PI; diff = targetTheta - this._theta; }
+    while (diff >  Math.PI) { targetTheta -= 2 * Math.PI; diff = targetTheta - this._theta; }
+    this._targetTheta = targetTheta;
+
     this._focusedRepoName = repoName;
 
     if (this._pulseUniforms) {
