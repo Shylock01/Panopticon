@@ -139,6 +139,20 @@ body {
   border: 1px solid rgba(255,255,255,0.1);
   transition: opacity 0.3s ease;
 }
+
+.icon-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.icon-btn:hover { color: var(--text-primary); }
+.icon-btn:active { transform: scale(0.92); }
 .zoom-indicator-text {
   font-size: 10px;
   font-weight: 800;
