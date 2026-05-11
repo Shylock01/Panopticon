@@ -69,6 +69,16 @@ class PanopticonSphere {
     this._targetTheta     = null;
     this._targetPhi       = null;
 
+    // Zoom state
+    this._radius         = CAM_RADIUS;
+    this._targetRadius   = CAM_RADIUS;
+    this._defaultRadius  = CAM_RADIUS;
+    this._zoomLocked     = false;
+    this._pinchDist      = 0;
+    this._holdStartTime  = 0;
+    this._isHolding      = false;
+    this._holdCancelled  = false;
+
     this._slotPositions = _fibPositions(64, SPHERE_RADIUS);
 
     this._init();
@@ -130,10 +140,11 @@ class PanopticonSphere {
   // Move camera to current theta/phi position, always look at origin.
   // Also repositions halo planes to stay behind sphere from camera's POV.
   _updateCamera() {
+    const r = this._radius;
     const sinPhi = Math.sin(this._phi);
-    const cx = CAM_RADIUS * sinPhi * Math.sin(this._theta);
-    const cy = CAM_RADIUS * Math.cos(this._phi);
-    const cz = CAM_RADIUS * sinPhi * Math.cos(this._theta);
+    const cx = r * sinPhi * Math.sin(this._theta);
+    const cy = r * Math.cos(this._phi);
+    const cz = r * sinPhi * Math.cos(this._theta);
     this.camera.position.set(cx, cy, cz);
     this.camera.up.set(0, 1, 0);
     this.camera.lookAt(0, 0, 0);
@@ -410,11 +421,39 @@ class PanopticonSphere {
     el.addEventListener('click',     e => { if (this._dragDist < 5) this._click(e.clientX, e.clientY); });
     el.addEventListener('mousemove', e => this._hover(e.clientX, e.clientY));
 
-    el.addEventListener('touchstart', e => { e.preventDefault(); const t = e.touches[0]; this._down(t.clientX, t.clientY); }, { passive: false });
-    el.addEventListener('touchmove',  e => { e.preventDefault(); const t = e.touches[0]; this._move(t.clientX, t.clientY); }, { passive: false });
+    // Mouse Wheel Zoom
+    el.addEventListener('wheel', e => {
+      e.preventDefault();
+      this._targetRadius = Math.max(4.0, Math.min(12.0, this._targetRadius + e.deltaY * 0.005));
+    }, { passive: false });
+
+    el.addEventListener('touchstart', e => { 
+      e.preventDefault(); 
+      if (e.touches.length === 1) {
+        const t = e.touches[0]; 
+        this._down(t.clientX, t.clientY); 
+      } else if (e.touches.length === 2) {
+        this._pinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+      }
+    }, { passive: false });
+
+    el.addEventListener('touchmove',  e => { 
+      e.preventDefault(); 
+      if (e.touches.length === 1) {
+        const t = e.touches[0]; 
+        this._move(t.clientX, t.clientY); 
+      } else if (e.touches.length === 2) {
+        const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+        const diff = d - this._pinchDist;
+        this._targetRadius = Math.max(4.0, Math.min(12.0, this._targetRadius - diff * 0.01));
+        this._pinchDist = d;
+        this._holdCancelled = true;
+      }
+    }, { passive: false });
+
     el.addEventListener('touchend',   e => {
       e.preventDefault(); this._up();
-      if (e.changedTouches.length && this._dragDist < 8) {
+      if (e.changedTouches.length && this._dragDist < 8 && e.touches.length === 0) {
         const t = e.changedTouches[0]; this._click(t.clientX, t.clientY);
       }
     }, { passive: false });
@@ -432,13 +471,21 @@ class PanopticonSphere {
     this._prevPtr = { x, y };
     this._velTheta = this._velPhi = this._dragDist = 0;
     this.canvas.style.cursor = 'grabbing';
+
+    // Start long-press timer for zoom lock
+    this._isHolding = true;
+    this._holdStartTime = Date.now();
+    this._holdCancelled = false;
   }
 
   _move(x, y) {
     if (!this._isDragging) return;
     const dx = x - this._prevPtr.x;
     const dy = y - this._prevPtr.y;
-    this._dragDist += Math.hypot(dx, dy);
+    const move = Math.hypot(dx, dy);
+    this._dragDist += move;
+
+    if (move > 3) this._holdCancelled = true;
 
     // Horizontal drag → orbit left/right (theta)
     this._theta -= dx * DRAG_SENS;
@@ -456,7 +503,12 @@ class PanopticonSphere {
 
   _up() {
     this._isDragging = false;
+    this._isHolding = false;
     this.canvas.style.cursor = 'grab';
+    
+    // Reset zoom indicator
+    const ui = document.getElementById('zoom-indicator');
+    if (ui) ui.setAttribute('hidden', '');
   }
 
   _click(cx, cy) {
@@ -522,8 +574,6 @@ class PanopticonSphere {
         let dPhi = this._targetPhi - this._phi;
         this._velPhi = (this._velPhi + dPhi * SPRING) * DAMP;
         this._phi += this._velPhi;
-
-        this._updateCamera();
       } else {
         // --- Normal Inertia / Idle ---
         const speed = Math.hypot(this._velTheta, this._velPhi);
@@ -538,8 +588,59 @@ class PanopticonSphere {
           this._theta += IDLE_ROT;
           this._velTheta = this._velPhi = 0;
         }
-        this._updateCamera();
       }
+    }
+
+    // --- Zoom Revert & Locking Logic ---
+    const REVERT_SPEED = 0.008; // How fast it drifts back to center
+    const ZOOM_LERP    = 0.12;  // How fast radius snaps to target
+
+    if (!this._zoomLocked) {
+      // Gradually drift back to default distance
+      this._targetRadius += (this._defaultRadius - this._targetRadius) * REVERT_SPEED;
+    }
+
+    // Smoothly apply radius changes
+    this._radius += (this._targetRadius - this._radius) * ZOOM_LERP;
+    this._updateCamera();
+
+    // --- Hold-to-Lock Timer ---
+    const indicator = document.getElementById('zoom-indicator');
+    const ring = document.getElementById('zoom-ring-progress');
+
+    if (this._isHolding && !this._holdCancelled && !this._zoomLocked) {
+      const elapsed = Date.now() - this._holdStartTime;
+      const progress = Math.min(1, elapsed / 3000);
+
+      if (indicator) indicator.removeAttribute('hidden');
+      if (ring) {
+        const circumference = 2 * Math.PI * 26; // r=26 from SVG
+        ring.style.strokeDashoffset = circumference * (1 - progress);
+      }
+
+      if (progress >= 1) {
+        this._zoomLocked = true;
+        this._defaultRadius = this._targetRadius; // Lock current zoom
+        if (indicator) {
+          indicator.classList.add('locked');
+          indicator.querySelector('.zoom-indicator-text').textContent = 'LOCKED';
+        }
+        setTimeout(() => {
+          if (indicator) indicator.setAttribute('hidden', '');
+        }, 1500);
+      }
+    } else if (!this._zoomLocked) {
+      if (indicator) indicator.setAttribute('hidden', '');
+    }
+
+    // If locked but user zooms again, break lock to allow new lock?
+    // Let's say any manual zoom or drag breaks current lock and allows a new 3s hold to re-lock.
+    // Actually, user said "lock and save zoom to that point", implying a persistent state.
+    // If they zoom again, it should revert to the *newly saved* point. That's what we have.
+    // If they want to CHANGE the locked point, they just hold again.
+    if (this._zoomLocked && this._isHolding && !this._holdCancelled && (Date.now() - this._holdStartTime > 100)) {
+       // Allow re-locking if holding again
+       if (Date.now() - this._holdStartTime > 500) this._zoomLocked = false; 
     }
 
     // Update pulse time
