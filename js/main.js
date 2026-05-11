@@ -98,6 +98,7 @@
         throw new Error(body.message || `GitHub returned ${res.status}`);
       }
       Store.saveToken(val);
+      if (window.Auth) window.Auth.syncToken(val);
       hideTokenScreen();
       if (!sphere) initSphere();
       showToast('GitHub connected! ✓', 'success');

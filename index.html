@@ -19,6 +19,12 @@
   <link rel="stylesheet" href="css/style.css">
   <link rel="manifest" href="manifest.json">
 
+  <!-- Firebase App (the core Firebase SDK) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <!-- Firebase Auth and Firestore -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
   <!-- Three.js r150 — last version with UMD global build (three.min.js) -->
   <!-- Must be blocking (no defer) so THREE is defined before other scripts run -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.150.0/build/three.min.js"></script>
@@ -190,6 +196,46 @@
       <button id="token-save-btn" class="btn btn-primary token-save">
         Connect GitHub
       </button>
+
+      <div class="auth-divider"><span>Cloud Sync</span></div>
+
+      <div id="auth-section" class="auth-section">
+        <div id="auth-logged-out">
+          <p class="auth-hint">Securely sync your token across devices.</p>
+          <div class="auth-btn-group">
+            <button id="auth-show-login" class="btn btn-outline btn-sm">Login</button>
+            <button id="auth-show-signup" class="btn btn-outline btn-sm">Sign Up</button>
+          </div>
+        </div>
+
+        <div id="auth-logged-in" hidden>
+          <div class="user-pill">
+            <span id="user-email" class="user-email-text"></span>
+            <button id="auth-logout-btn" class="logout-link">Logout</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Auth Modal -->
+    <div id="auth-modal" class="auth-modal" hidden>
+      <div class="auth-modal-content">
+        <h2 id="auth-modal-title">Login</h2>
+        <form id="auth-form">
+          <div class="auth-field">
+            <input type="email" id="auth-email" placeholder="Email Address" required>
+          </div>
+          <div class="auth-field">
+            <input type="password" id="auth-password" placeholder="Password" required>
+          </div>
+          <div class="auth-modal-footer">
+            <button type="button" id="auth-modal-cancel" class="btn btn-outline btn-sm">Cancel</button>
+            <button type="submit" id="auth-modal-submit" class="btn btn-primary btn-sm">Continue</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
     </div>
   </div>
 
@@ -198,6 +244,7 @@
 
   <!-- App scripts in dependency order (no defer needed — they're at end of body) -->
   <script src="js/store.js"></script>
+  <script src="js/auth.js"></script>
   <script src="js/github.js"></script>
   <script src="js/sphere.js"></script>
   <script src="js/main.js"></script>

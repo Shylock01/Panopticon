@@ -648,7 +648,96 @@ body {
 }
 .token-help-link:hover { opacity: 1; text-decoration: underline; }
 
-.token-save { width: 100%; padding: 12px; font-size: 15px; }
+.token-save { width: 100%; padding: 12px; font-size: 15px; margin-bottom: 8px; }
+
+/* ── Auth / Cloud Sync ── */
+.auth-divider {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  margin: 16px 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 600;
+}
+.auth-divider::before, .auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+.auth-divider span { padding: 0 12px; }
+
+.auth-section {
+  width: 100%;
+  text-align: center;
+}
+.auth-hint { font-size: 12px; color: var(--text-secondary); margin-bottom: 12px; }
+.auth-btn-group { display: flex; gap: 8px; justify-content: center; }
+
+.user-pill {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  padding: 8px 14px;
+  border-radius: var(--radius-xl);
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+.user-email-text { font-size: 12px; font-weight: 500; color: var(--text-primary); }
+.logout-link {
+  background: none;
+  border: none;
+  color: #ff6b6b;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: all var(--transition);
+}
+.logout-link:hover { background: rgba(255, 107, 107, 0.1); }
+
+/* Auth Modal */
+.auth-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(10px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.auth-modal-content {
+  background: var(--surface);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--radius-md);
+  padding: 32px;
+  width: min(340px, calc(100vw - 40px));
+  box-shadow: var(--shadow-glass);
+}
+.auth-modal-content h2 { font-size: 18px; margin-bottom: 20px; text-align: center; }
+.auth-field { margin-bottom: 12px; }
+.auth-field input {
+  width: 100%;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  color: var(--text-primary);
+  font-size: 14px;
+  outline: none;
+}
+.auth-field input:focus { border-color: var(--accent); }
+.auth-modal-footer { display: flex; gap: 8px; margin-top: 24px; }
+.auth-modal-footer button { flex: 1; }
 
 /* ── Toasts ── */
 .toast-container {
