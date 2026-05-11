@@ -92,11 +92,24 @@ body {
   user-select: none;
 }
 
-.logo-icon {
-  font-size: 22px;
-  color: var(--accent);
+.logo-img {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
   filter: drop-shadow(0 0 8px var(--accent-glow));
   animation: logoPulse 4s ease-in-out infinite;
+}
+
+.settings-logo-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+.settings-logo {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 12px var(--accent-glow));
 }
 
 @keyframes logoPulse {
