@@ -42,6 +42,9 @@
   const popupDescEdit    = document.getElementById('popup-app-desc-edit');
   const popupIconEditBtn = document.getElementById('popup-icon-edit-btn');
   const popupIconInput   = document.getElementById('popup-icon-input');
+  const popupBgMgmt      = document.getElementById('popup-bg-mgmt');
+  const popupResumeBtn   = document.getElementById('popup-resume-btn');
+  const popupTerminateBtn= document.getElementById('popup-terminate-btn');
   const toastContainer = document.getElementById('toast-container');
   const appShell       = document.getElementById('app-shell');
   const appFrame       = document.getElementById('app-frame');
@@ -299,13 +302,15 @@
 
     // Dynamic Button State
     if (backgroundApps.has(appEntry.repoName)) {
-      popupLaunch.textContent = 'Open App';
-      popupLaunch.classList.remove('btn-primary');
-      popupLaunch.classList.add('btn-success');
+      popupLaunch.setAttribute('hidden', '');
+      popupBgMgmt.removeAttribute('hidden');
+      popupResumeBtn.href = appEntry.pagesUrl;
     } else {
-      popupLaunch.textContent = 'Launch App';
+      popupLaunch.removeAttribute('hidden');
+      popupBgMgmt.setAttribute('hidden', '');
       popupLaunch.classList.add('btn-primary');
       popupLaunch.classList.remove('btn-success');
+      popupLaunch.textContent = 'Launch App';
     }
 
     // Always start in View mode
@@ -341,6 +346,29 @@
     appShell.classList.remove('app-shell--hiding');
     shellControls.setAttribute('hidden', ''); // Ensure controls are closed on launch
     hideNodePopup();
+  });
+
+  popupResumeBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (!activePopupApp) return;
+    currentShellApp = activePopupApp;
+    appShell.removeAttribute('hidden');
+    appShell.classList.remove('app-shell--hiding');
+    shellControls.setAttribute('hidden', '');
+    hideNodePopup();
+  });
+
+  popupTerminateBtn.addEventListener('click', () => {
+    if (!activePopupApp) return;
+    const repo = activePopupApp.repoName;
+    
+    backgroundApps.delete(repo);
+    sphere?.setNodeBackground(repo, false);
+    appFrame.src = 'about:blank';
+    currentShellApp = null;
+    
+    hideNodePopup();
+    showToast(`${repo} closed.`, 'info');
   });
 
   shellTab.addEventListener('click', () => {

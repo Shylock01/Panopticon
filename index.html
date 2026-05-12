@@ -149,10 +149,16 @@
     </div>
 
     <div class="popup-actions">
-      <!-- View Mode Buttons -->
+      <!-- Standard View Mode -->
       <a id="popup-launch-btn" class="btn btn-primary btn-full" href="#" target="_blank" rel="noopener noreferrer">
         Launch App
       </a>
+
+      <!-- Background Management Mode -->
+      <div id="popup-bg-mgmt" class="popup-grid-actions" hidden>
+        <a id="popup-resume-btn" class="btn btn-success" href="#" target="_blank" rel="noopener noreferrer">Open App</a>
+        <button id="popup-terminate-btn" class="btn btn-danger-outline">Close App</button>
+      </div>
       
       <!-- Edit Mode Buttons -->
       <div id="popup-edit-actions" class="popup-edit-actions" hidden>
@@ -256,7 +262,7 @@
           <button id="app-update-btn" class="btn btn-outline btn-sm btn-full">Check for Updates</button>
           <button id="app-reset-btn" class="btn btn-danger-outline btn-sm btn-full">Hard Reset App Cache</button>
         </div>
-        <div class="version-label">v1.1.18</div>
+        <div class="version-label">v1.1.19</div>
       </div>
     </div>
     </div>

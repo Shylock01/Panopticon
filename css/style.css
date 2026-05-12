@@ -645,6 +645,11 @@ body {
   gap: 10px;
   margin-top: 6px;
 }
+.popup-grid-actions {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 10px;
+}
 .btn-full { width: 100%; }
 
 .popup-edit-actions {
