@@ -506,12 +506,26 @@
       if (!('serviceWorker' in navigator)) return;
 
       try {
-        // Register with cache-bust to ensure SW check on GitHub Pages
-        this.registration = await navigator.serviceWorker.register('./sw.js?v=' + Date.now());
+        // Register stable URL
+        this.registration = await navigator.serviceWorker.register('./sw.js');
         
+        // Check for existing waiting worker
+        if (this.registration.waiting) {
+          this.waitingWorker = this.registration.waiting;
+          this.showUpdateUI();
+        }
+
         // Monitor registration states
-        this.registration.addEventListener('updatefound', () => this.trackUpdate(this.registration.installing));
-        if (this.registration.waiting) this.trackUpdate(this.registration.waiting);
+        this.registration.addEventListener('updatefound', () => {
+          const installing = this.registration.installing;
+          if (!installing) return;
+          installing.addEventListener('statechange', () => {
+            if (installing.state === 'installed' && navigator.serviceWorker.controller) {
+              this.waitingWorker = installing;
+              this.showUpdateUI();
+            }
+          });
+        });
 
         // Listen for controllerchange (reload)
         let refreshing = false;
@@ -525,16 +539,6 @@
       } catch (err) {
         console.error('SW Registration failed:', err);
       }
-    }
-
-    trackUpdate(worker) {
-      if (!worker) return;
-      worker.addEventListener('statechange', () => {
-        if (worker.state === 'installed' && navigator.serviceWorker.controller) {
-          this.waitingWorker = worker;
-          this.showUpdateUI();
-        }
-      });
     }
 
     showUpdateUI() {
@@ -560,15 +564,17 @@
 
       const triggerPrompt = () => {
         if (!this.waitingWorker) {
+          showToast('Checking server...', 'info');
           this.registration.update();
           return;
         }
         if (backgroundApps.size > 0) {
           warning?.removeAttribute('hidden');
+          modal?.removeAttribute('hidden');
         } else {
-          warning?.setAttribute('hidden', '');
+          // No apps? Update immediately!
+          this.waitingWorker.postMessage({ type: 'SKIP_WAITING' });
         }
-        modal?.removeAttribute('hidden');
       };
 
       toastBtn?.addEventListener('click', triggerPrompt);
