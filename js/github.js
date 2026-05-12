@@ -61,16 +61,33 @@ window.GH = (() => {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
+      
+      let timer = setTimeout(() => {
+        img.onload = img.onerror = null;
+        img.src = ''; // Cancel loading
+        reject(new Error('timeout'));
+      }, 4000);
+
       img.onload = () => {
+        clearTimeout(timer);
         try {
           const canvas = document.createElement('canvas');
           canvas.width = 128; canvas.height = 128;
-          canvas.getContext('2d').drawImage(img, 0, 0, 128, 128);
+          const ctx = canvas.getContext('2d');
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, 128, 128);
           resolve(canvas.toDataURL('image/png'));
-        } catch { reject(new Error('CORS taint')); }
+        } catch (e) { 
+          reject(new Error('CORS taint')); 
+        }
       };
-      img.onerror = () => reject(new Error('load failed'));
-      setTimeout(() => reject(new Error('timeout')), 4000);
+
+      img.onerror = () => {
+        clearTimeout(timer);
+        reject(new Error('load failed'));
+      };
+
       img.src = url;
     });
   }

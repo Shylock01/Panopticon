@@ -104,7 +104,9 @@
   }
 
   window.Main = {
-    setTabBadge
+    setTabBadge,
+    initSphere,
+    showToast
   };
 
   // ─── Bootstrap ───────────────────────────────────────────────────────────
@@ -235,6 +237,7 @@
     if (!filtered.length) { repoEmpty.removeAttribute('hidden'); return; }
     repoEmpty.setAttribute('hidden', '');
 
+    const fragment = document.createDocumentFragment();
     for (const repo of filtered) {
       const linked = await Store.isLinked(repo.repoName);
       const item = document.createElement('div');
@@ -251,8 +254,9 @@
           ${linked ? '✓ Linked' : '+ Link'}
         </button>`;
       item.querySelector('button').addEventListener('click', () => handleLink(repo, item));
-      repoList.appendChild(item);
+      fragment.appendChild(item);
     }
+    repoList.appendChild(fragment);
   }
 
   async function handleLink(repo, itemEl) {

@@ -84,6 +84,17 @@ class PanopticonSphere {
     this._zoomLastActiveTime = 0;
     this._ptrPos         = { x: 0, y: 0 };
 
+    // Cached DOM refs
+    this._ui = {
+      indicator: document.getElementById('zoom-indicator'),
+      ring:      document.getElementById('zoom-ring-progress'),
+      flash:     document.getElementById('zoom-flash')
+    };
+
+    // Pre-allocated vectors for loop performance
+    this._tmpDir = new THREE.Vector3();
+    this._tmpPos = new THREE.Vector3();
+
     this._slotPositions = _fibPositions(64, SPHERE_RADIUS);
 
     this._init();
@@ -157,13 +168,16 @@ class PanopticonSphere {
     // Keep halo planes and back light locked directly behind the sphere
     // (opposite the camera, always facing toward camera)
     if (this._haloMesh && this._coronaMesh) {
-      const camDir = this.camera.position.clone().normalize();
+      this._tmpDir.copy(this.camera.position).normalize();
+      
       // Back light pulses from directly behind the sphere
-      this._backLight.position.copy(camDir.clone().multiplyScalar(-8));
+      this._backLight.position.copy(this._tmpDir).multiplyScalar(-8);
+      
       // Halo planes sit behind sphere, oriented to face camera
-      this._haloMesh.position.copy(camDir.clone().multiplyScalar(-9));
+      this._haloMesh.position.copy(this._tmpDir).multiplyScalar(-9);
       this._haloMesh.lookAt(this.camera.position);
-      this._coronaMesh.position.copy(camDir.clone().multiplyScalar(-5.6));
+      
+      this._coronaMesh.position.copy(this._tmpDir).multiplyScalar(-5.6);
       this._coronaMesh.lookAt(this.camera.position);
 
       // Scale glow INVERSELY to distance so it shrinks with the sphere when zooming out
@@ -390,6 +404,7 @@ class PanopticonSphere {
     this.group.add(nodeGroup);
     this.nodes.set(appEntry.repoName, {
       nodeGroup, disc, iconMat, iconTex, appEntry, slot, glowMat,
+      glowSprite: glow,
       targetScale: 1, targetGlow: 0
     });
   }
@@ -425,9 +440,13 @@ class PanopticonSphere {
   _bindEvents() {
     const el = this.canvas;
 
+    this._upBound   = this._up.bind(this);
+    this._moveBound = this._move.bind(this);
+    this._resizeBound = this._resize.bind(this);
+
     el.addEventListener('mousedown',  e => this._down(e.clientX, e.clientY));
-    window.addEventListener('mousemove',  e => this._move(e.clientX, e.clientY));
-    window.addEventListener('mouseup',   () => this._up());
+    window.addEventListener('mousemove',  this._moveBound);
+    window.addEventListener('mouseup',   this._upBound);
     el.addEventListener('click',     e => { if (this._dragDist < 5) this._click(e.clientX, e.clientY); });
     el.addEventListener('mousemove', e => this._hover(e.clientX, e.clientY));
 
@@ -471,12 +490,15 @@ class PanopticonSphere {
       }
     }, { passive: false });
 
-    window.addEventListener('resize', () => {
-      const w = window.innerWidth, h = window.innerHeight;
-      this.camera.aspect = w / h;
-      this.camera.updateProjectionMatrix();
-      this.renderer.setSize(w, h, false);
-    });
+    window.addEventListener('resize', this._resizeBound);
+  }
+
+  _resize() {
+    const w = window.innerWidth, h = window.innerHeight;
+    this.camera.aspect = w / h;
+    this.camera.updateProjectionMatrix();
+    this.renderer.setSize(w, h, false);
+  }
   }
 
   _down(x, y) {
@@ -517,13 +539,11 @@ class PanopticonSphere {
   }
 
   _up() {
-    this._isDragging = false;
     this._isHolding = false;
     this.canvas.style.cursor = 'grab';
     
     // Reset zoom indicator
-    const ui = document.getElementById('zoom-indicator');
-    if (ui) ui.setAttribute('hidden', '');
+    if (this._ui.indicator) this._ui.indicator.setAttribute('hidden', '');
   }
 
   _click(cx, cy) {
@@ -625,9 +645,6 @@ class PanopticonSphere {
     this._updateCamera();
 
     // --- Hold-to-Lock Timer ---
-    const indicator = document.getElementById('zoom-indicator');
-    const ring = document.getElementById('zoom-ring-progress');
-
     if (this._isHolding && !this._holdCancelled) {
       const elapsed = now - this._holdStartTime;
       const DISPLAY_DELAY = 500;  // Don't show indicator for first 0.5s
@@ -636,13 +653,13 @@ class PanopticonSphere {
       if (elapsed > DISPLAY_DELAY) {
         const progress = Math.min(1, (elapsed - DISPLAY_DELAY) / (LOCK_TIME - DISPLAY_DELAY));
 
-        if (indicator) {
-          indicator.removeAttribute('hidden');
-          indicator.style.transform = `translate(${this._ptrPos.x}px, ${this._ptrPos.y}px) translate(-50%, -50%)`;
+        if (this._ui.indicator) {
+          this._ui.indicator.removeAttribute('hidden');
+          this._ui.indicator.style.transform = `translate(${this._ptrPos.x}px, ${this._ptrPos.y}px) translate(-50%, -50%)`;
         }
-        if (ring) {
+        if (this._ui.ring) {
           const circumference = 2 * Math.PI * 26; // r=26 from SVG
-          ring.style.strokeDashoffset = circumference * (1 - progress);
+          this._ui.ring.style.strokeDashoffset = circumference * (1 - progress);
         }
 
         if (progress >= 1) {
@@ -653,29 +670,30 @@ class PanopticonSphere {
           }
           
           // Visual Feedback
-          if (indicator) {
-            indicator.classList.add('locked');
-            indicator.querySelector('.zoom-indicator-text').textContent = 'LOCKED';
+          if (this._ui.indicator) {
+            this._ui.indicator.classList.add('locked');
+            this._ui.indicator.querySelector('.zoom-indicator-text').textContent = 'LOCKED';
             setTimeout(() => {
-                indicator.setAttribute('hidden', '');
-                indicator.classList.remove('locked');
+                if (this._ui.indicator) {
+                  this._ui.indicator.setAttribute('hidden', '');
+                  this._ui.indicator.classList.remove('locked');
+                }
             }, 800);
           }
 
           // Blue Double Flash
-          const flash = document.getElementById('zoom-flash');
-          if (flash) {
-            flash.removeAttribute('hidden');
-            setTimeout(() => flash.setAttribute('hidden', ''), 700);
+          if (this._ui.flash) {
+            this._ui.flash.removeAttribute('hidden');
+            setTimeout(() => { if (this._ui.flash) this._ui.flash.setAttribute('hidden', ''); }, 700);
           }
 
           this._holdCancelled = true; // Stop processing hold for this touch
         }
       } else {
-        if (indicator) indicator.setAttribute('hidden', '');
+        if (this._ui.indicator) this._ui.indicator.setAttribute('hidden', '');
       }
     } else {
-      if (indicator) indicator.setAttribute('hidden', '');
+      if (this._ui.indicator) this._ui.indicator.setAttribute('hidden', '');
     }
 
     // Update pulse time
@@ -706,10 +724,10 @@ class PanopticonSphere {
       entry.glowMat.opacity = nextO;
 
       // Also slightly scale up the glow if backgrounded
-      const targetScale = entry.isBackground ? (NODE_R * 4.2) : (NODE_R * 3.5);
-      const curScale = entry.nodeGroup.children.find(c => c.type === 'Sprite').scale.x;
-      const nextScale = curScale + (targetScale - curScale) * LERP_SPEED;
-      entry.nodeGroup.children.find(c => c.type === 'Sprite').scale.set(nextScale, nextScale, 1);
+      const tGlowS = entry.isBackground ? (NODE_R * 4.2) : (NODE_R * 3.5);
+      const curGlowS = entry.glowSprite.scale.x;
+      const nextGlowS = curGlowS + (tGlowS - curGlowS) * LERP_SPEED;
+      entry.glowSprite.scale.set(nextGlowS, nextGlowS, 1);
     });
 
     this.renderer.render(this.scene, this.camera);
@@ -771,7 +789,25 @@ class PanopticonSphere {
 
   destroy() {
     cancelAnimationFrame(this._animId);
+    
+    // Unbind window events
+    window.removeEventListener('mousemove', this._moveBound);
+    window.removeEventListener('mouseup',   this._upBound);
+    window.removeEventListener('resize',    this._resizeBound);
+
     this.renderer.dispose();
+    this.scene.traverse(child => {
+      if (child.isMesh || child.isLine || child.isSprite) {
+        child.geometry?.dispose();
+        if (child.material) {
+          const mats = Array.isArray(child.material) ? child.material : [child.material];
+          mats.forEach(m => {
+            if (m.map) m.map.dispose();
+            m.dispose();
+          });
+        }
+      }
+    });
   }
 }
 

@@ -54,53 +54,70 @@
     authForm.reset();
   }
 
+  function updateAuthUI(user) {
+    if (user) {
+      loggedOutGroup.setAttribute('hidden', '');
+      loggedInGroup.removeAttribute('hidden');
+      userEmailSpan.textContent = user.email;
+    } else {
+      loggedOutGroup.removeAttribute('hidden');
+      loggedInGroup.setAttribute('hidden', '');
+    }
+  }
+
   // --- Auth State Handling ---
   if (isConfigured) {
     auth.onAuthStateChanged(async (user) => {
+      updateAuthUI(user);
       if (user) {
-        loggedOutGroup.setAttribute('hidden', '');
-        loggedInGroup.removeAttribute('hidden');
-        userEmailSpan.textContent = user.email;
-
         // --- FULL SYNC ON LOGIN ---
-        const userRef = db.collection('users').doc(user.uid);
-        const doc = await userRef.get();
+        try {
+          const userRef = db.collection('users').doc(user.uid);
+          const doc = await userRef.get();
 
-        if (doc.exists) {
-          const data = doc.data();
-          
-          // 1. Sync Token
-          if (data.ghToken && !Store.getToken()) {
-            Store.saveToken(data.ghToken);
-          }
-          
-          // 2. Sync App List
-          if (data.linkedApps && data.linkedApps.length > 0) {
-            const localApps = await Store.getLinkedApps();
-            if (localApps.length === 0) {
-              for (const app of data.linkedApps) {
-                await Store.linkApp(app);
+          if (doc.exists) {
+            const data = doc.data();
+            let needsReinit = false;
+            
+            // 1. Sync Token
+            if (data.ghToken && !Store.getToken()) {
+              Store.saveToken(data.ghToken);
+            }
+            
+            // 2. Sync App List
+            if (data.linkedApps && data.linkedApps.length > 0) {
+              const localApps = await Store.getLinkedApps();
+              if (localApps.length === 0) {
+                for (const app of data.linkedApps) {
+                  await Store.linkApp(app);
+                }
+                needsReinit = true;
               }
-              // Force reload to init sphere with new apps
-              window.location.reload();
-              return;
+            }
+            
+            // 3. Sync App States (Sub-collection)
+            const statesSnap = await userRef.collection('states').get();
+            for (const stateDoc of statesSnap.docs) {
+              const repoName = stateDoc.id;
+              const stateData = stateDoc.data().payload;
+              const localState = await Store.getAppState(repoName);
+              if (!localState) {
+                await Store.setAppState(repoName, stateData);
+                needsReinit = true; 
+              }
+            }
+
+            if (needsReinit) {
+               if (window.Main && window.Main.initSphere) {
+                 await window.Main.initSphere();
+               } else {
+                 window.location.reload();
+               }
             }
           }
-          
-          // 3. Sync App States (Sub-collection)
-          const statesSnap = await userRef.collection('states').get();
-          for (const stateDoc of statesSnap.docs) {
-            const repoName = stateDoc.id;
-            const stateData = stateDoc.data().payload;
-            const localState = await Store.getAppState(repoName);
-            if (!localState) {
-              await Store.setAppState(repoName, stateData);
-            }
-          }
+        } catch (syncErr) {
+          console.error('Initial cloud sync failed:', syncErr);
         }
-      } else {
-        loggedOutGroup.removeAttribute('hidden');
-        loggedInGroup.setAttribute('hidden', '');
       }
     });
   }

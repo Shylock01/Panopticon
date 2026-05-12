@@ -1,11 +1,14 @@
-// sw.js v1.1.27
-const CACHE_NAME = 'panopticon-v1.1.27';
+// sw.js v1.1.28
+const CACHE_NAME = 'panopticon-v1.1.28';
 const ASSETS = [
   './',
   'index.html',
   'manifest.json',
   'icon-192.png',
+  'icon-192-Android.png',
   'icon-512.png',
+  'icon-512-Android.png',
+  'icon-1920.png',
   'css/style.css',
   'js/main.js',
   'js/sphere.js',

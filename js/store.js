@@ -7,8 +7,11 @@ window.Store = (() => {
   const DB_VERSION = 1;
   const STORE_NAME = 'kv';
 
+  let _db = null;
+
   // --- DB Helper ---
   async function getDB() {
+    if (_db) return _db;
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
       request.onupgradeneeded = (e) => {
@@ -18,7 +21,7 @@ window.Store = (() => {
         }
       };
       request.onsuccess = async (e) => {
-        const db = e.target.result;
+        _db = e.target.result;
         // Migration check
         const migratedKey = 'panopticon_idb_migrated';
         if (!localStorage.getItem(migratedKey)) {
@@ -26,16 +29,20 @@ window.Store = (() => {
           try {
             const apps = JSON.parse(localStorage.getItem('panopticon_linked_apps')) || [];
             const zoom = JSON.parse(localStorage.getItem('panopticon_zoom_state'));
-            const tx = db.transaction(STORE_NAME, 'readwrite');
+            const tx = _db.transaction(STORE_NAME, 'readwrite');
             const store = tx.objectStore(STORE_NAME);
             if (apps.length > 0) store.put(apps, 'linked_apps');
             if (zoom) store.put(zoom, 'zoom_state');
             localStorage.setItem(migratedKey, 'true');
+            tx.oncomplete = () => resolve(_db);
+            tx.onerror = () => resolve(_db);
           } catch (err) {
             console.error('Migration failed:', err);
+            resolve(_db);
           }
+        } else {
+          resolve(_db);
         }
-        resolve(db);
       };
       request.onerror = (e) => reject(e.target.error);
     });
@@ -57,7 +64,7 @@ window.Store = (() => {
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readwrite');
       const store = tx.objectStore(STORE_NAME);
-      const request = store.put(val, key);
+      const request = val === null ? store.delete(key) : store.put(val, key);
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
     });
