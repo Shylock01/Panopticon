@@ -600,8 +600,28 @@
       });
 
       cancelBtn?.addEventListener('click', () => modal?.setAttribute('hidden', ''));
-      confirmBtn?.addEventListener('click', () => {
-        this.waitingWorker?.postMessage({ type: 'SKIP_WAITING' });
+      confirmBtn?.addEventListener('click', async () => {
+        showToast('Performing Hard Refresh...', 'info');
+        
+        // 1. Unlink Service Worker immediately
+        if (this.waitingWorker) {
+          this.waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+        }
+        
+        // 2. Nuclear Reset: Unregister and Clear all caches
+        // This simulates a manual Shift + Cmd + R 
+        try {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          for (let r of registrations) await r.unregister();
+          
+          const cacheNames = await caches.keys();
+          for (let name of cacheNames) await caches.delete(name);
+          
+          // 3. Force reload from server
+          window.location.reload(true);
+        } catch (e) {
+          window.location.reload();
+        }
       });
 
       appResetBtn?.addEventListener('click', async () => {
