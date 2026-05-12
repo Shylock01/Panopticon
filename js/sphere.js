@@ -404,8 +404,15 @@ class PanopticonSphere {
     nodeGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
 
     this.group.add(nodeGroup);
+    const normalizedEntry = {
+      repoName:    repoName,
+      pagesUrl:    appEntry.pagesUrl || appEntry.pages,
+      iconDataUrl: appEntry.iconDataUrl || appEntry.icon,
+      description: appEntry.description || appEntry.desc || ''
+    };
+
     this.nodes.set(repoName, {
-      nodeGroup, disc, iconMat, iconTex, appEntry, slot, glowMat,
+      nodeGroup, disc, iconMat, iconTex, appEntry: normalizedEntry, slot, glowMat,
       glowSprite: glow,
       targetScale: 1, targetGlow: 0
     });
@@ -449,7 +456,7 @@ class PanopticonSphere {
     el.addEventListener('mousedown',  e => this._down(e.clientX, e.clientY));
     window.addEventListener('mousemove',  this._moveBound);
     window.addEventListener('mouseup',   this._upBound);
-    el.addEventListener('click',     e => { if (this._dragDist < 5) this._click(e.clientX, e.clientY); });
+    el.addEventListener('click',     e => { if (this._dragDist < 10) this._click(e.clientX, e.clientY); });
     el.addEventListener('mousemove', e => this._hover(e.clientX, e.clientY));
 
     // Mouse Wheel Zoom
