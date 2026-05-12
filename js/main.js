@@ -108,22 +108,22 @@
   };
 
   // ─── Bootstrap ───────────────────────────────────────────────────────────
-  function boot() {
+  async function boot() {
     const token = Store.getToken();
     if (!token) {
       showTokenScreen();
       setTabBadge('settings-tab-connect', true);
     } else {
       hideTokenScreen();
-      initSphere();
+      await initSphere();
     }
   }
 
-  function initSphere() {
+  async function initSphere() {
     try {
       if (sphere) sphere.destroy();
       sphere = new PanopticonSphere(canvas, showNodePopup);
-      const apps = Store.getLinkedApps();
+      const apps = await Store.getLinkedApps();
       apps.forEach(app => sphere.addNode(app));
       // Start camera facing the most recently added app
       if (apps.length > 0) {
@@ -165,10 +165,9 @@
       Store.saveToken(val);
       if (window.Auth) window.Auth.syncToken(val);
       hideTokenScreen();
-      if (!sphere) initSphere();
+      if (!sphere) await initSphere();
       showToast('GitHub connected! ✓', 'success');
     } catch (e) {
-      // Distinguish network errors from auth errors
       if (e.message.includes('fetch') || e.message.includes('network') || e.message.includes('Failed')) {
         showToast('Network error — check your internet connection.', 'error');
       } else {
@@ -218,14 +217,14 @@
 
     try {
       cachedRepos = await GH.fetchRepos(token);
-      renderRepoList(cachedRepos);
+      await renderRepoList(cachedRepos);
     } catch (e) {
       showToast(e.message || 'Failed to load repos.', 'error');
       repoLoading.setAttribute('hidden', '');
     }
   }
 
-  function renderRepoList(repos) {
+  async function renderRepoList(repos) {
     repoLoading.setAttribute('hidden', '');
     repoList.innerHTML = '';
 
@@ -235,8 +234,8 @@
     if (!filtered.length) { repoEmpty.removeAttribute('hidden'); return; }
     repoEmpty.setAttribute('hidden', '');
 
-    filtered.forEach(repo => {
-      const linked = Store.isLinked(repo.repoName);
+    for (const repo of filtered) {
+      const linked = await Store.isLinked(repo.repoName);
       const item = document.createElement('div');
       item.className = 'repo-item' + (linked ? ' repo-item--linked' : '');
       item.setAttribute('role', 'listitem');
@@ -252,12 +251,12 @@
         </button>`;
       item.querySelector('button').addEventListener('click', () => handleLink(repo, item));
       repoList.appendChild(item);
-    });
+    }
   }
 
   async function handleLink(repo, itemEl) {
-    if (Store.isLinked(repo.repoName)) {
-      showToast(`${repo.repoName} is already linked. Tap its node on the sphere to manage it.`, 'info');
+    if (await Store.isLinked(repo.repoName)) {
+      showToast(`${repo.repoName} is already linked.`, 'info');
       return;
     }
     const btn = itemEl.querySelector('button');
@@ -273,16 +272,19 @@
       iconColor:   color,
     };
 
-    Store.linkApp(entry);
+    await Store.linkApp(entry);
     sphere?.addNode(entry);
     closeDrawer();
     showToast(`${repo.repoName} added to the sphere!`, 'success');
 
-    // Async favicon upgrade
-    GH.fetchFavicon(repo.pagesUrl).then(favUrl => {
+    // Sync to cloud
+    if (window.Auth) window.Auth.syncAll();
+
+    GH.fetchFavicon(repo.pagesUrl).then(async favUrl => {
       if (favUrl) {
-        Store.updateAppIcon(repo.repoName, favUrl);
+        await Store.updateAppIcon(repo.repoName, favUrl);
         sphere?.updateNodeIcon(repo.repoName, favUrl);
+        if (window.Auth) window.Auth.syncAll();
       }
     }).catch(() => {});
   }
@@ -290,7 +292,7 @@
   repoSearch.addEventListener('input', () => renderRepoList(cachedRepos));
 
   // ─── Node popup ───────────────────────────────────────────────────────────
-  function showNodePopup(appEntry) {
+  async function showNodePopup(appEntry) {
     activePopupApp = appEntry;
     popupIcon.src              = appEntry.iconDataUrl;
     popupIcon.alt              = appEntry.repoName;
@@ -299,10 +301,8 @@
     popupLaunch.href           = appEntry.pagesUrl;
     popupUnlink.classList.remove('btn-danger-confirm');
 
-    // Always start in View mode
     exitEditMode();
 
-    // Dynamic Button State (Must be after exitEditMode to avoid visibility override)
     if (backgroundApps.has(appEntry.repoName)) {
       popupLaunch.setAttribute('hidden', '');
       popupBgMgmt.removeAttribute('hidden');
@@ -333,17 +333,13 @@
   popupLaunch.addEventListener('click', (e) => {
     e.preventDefault();
     if (!activePopupApp) return;
-    
     currentShellApp = activePopupApp;
-    
-    // If it's already in background, just show it. Otherwise load it.
     if (!backgroundApps.has(currentShellApp.repoName)) {
       appFrame.src = currentShellApp.pagesUrl;
     }
-    
     appShell.removeAttribute('hidden');
     appShell.classList.remove('app-shell--hiding');
-    shellControls.setAttribute('hidden', ''); // Ensure controls are closed on launch
+    shellControls.setAttribute('hidden', '');
     hideNodePopup();
   });
 
@@ -360,12 +356,10 @@
   popupTerminateBtn.addEventListener('click', () => {
     if (!activePopupApp) return;
     const repo = activePopupApp.repoName;
-    
     backgroundApps.delete(repo);
     sphere?.setNodeBackground(repo, false);
     appFrame.src = 'about:blank';
     currentShellApp = null;
-    
     hideNodePopup();
     showToast(`${repo} closed.`, 'info');
   });
@@ -384,27 +378,22 @@
   shellBackgroundBtn.addEventListener('click', () => {
     if (!currentShellApp) return;
     const repo = currentShellApp.repoName;
-    
     backgroundApps.add(repo);
     sphere?.setNodeBackground(repo, true);
-    
     appShell.classList.add('app-shell--hiding');
     setTimeout(() => {
       appShell.setAttribute('hidden', '');
       appShell.classList.remove('app-shell--hiding');
       currentShellApp = null;
     }, 400);
-    
-    showToast(`${repo} is now running in the background.`, 'success');
+    showToast(`${repo} is backgrounded.`, 'success');
   });
 
   shellCloseBtn.addEventListener('click', () => {
     if (!currentShellApp) return;
     const repo = currentShellApp.repoName;
-    
     backgroundApps.delete(repo);
     sphere?.setNodeBackground(repo, false);
-    
     appShell.classList.add('app-shell--hiding');
     setTimeout(() => {
       appShell.setAttribute('hidden', '');
@@ -412,11 +401,10 @@
       appFrame.src = 'about:blank';
       currentShellApp = null;
     }, 400);
-    
     showToast(`${repo} closed.`, 'info');
   });
 
-  popupUnlink.addEventListener('click', () => {
+  popupUnlink.addEventListener('click', async () => {
     if (popupUnlink.dataset.state === 'idle') {
       popupUnlink.dataset.state = 'confirm';
       popupUnlink.textContent   = 'Confirm Unlink?';
@@ -430,24 +418,22 @@
       }, 4000);
     } else if (activePopupApp) {
       const name = activePopupApp.repoName;
-      Store.unlinkApp(name);
+      await Store.unlinkApp(name);
       sphere?.removeNode(name);
       hideNodePopup();
       showToast(`${name} unlinked.`, 'info');
+      if (window.Auth) window.Auth.syncAll();
     }
   });
 
-  // Edit Mode Flow
   function enterEditMode() {
     nodePopup.classList.add('node-popup--editing');
     popupEditTrigger.setAttribute('hidden', '');
     popupLaunch.setAttribute('hidden', '');
-    
     popupDescView.setAttribute('hidden', '');
     popupDescEditWrap.removeAttribute('hidden');
     popupEditActions.removeAttribute('hidden');
     popupIconEditBtn.removeAttribute('hidden');
-
     popupDescEdit.value = activePopupApp?.description || '';
   }
 
@@ -455,7 +441,6 @@
     nodePopup.classList.remove('node-popup--editing');
     popupEditTrigger.removeAttribute('hidden');
     popupLaunch.removeAttribute('hidden');
-    
     popupDescView.removeAttribute('hidden');
     popupDescEditWrap.setAttribute('hidden', '');
     popupEditActions.setAttribute('hidden', '');
@@ -464,34 +449,52 @@
 
   popupEditTrigger.addEventListener('click', enterEditMode);
 
-  popupSaveBtn.addEventListener('click', () => {
+  popupSaveBtn.addEventListener('click', async () => {
     if (!activePopupApp) return;
     const newDesc = popupDescEdit.value.trim();
-    Store.updateAppDescription(activePopupApp.repoName, newDesc);
+    await Store.updateAppDescription(activePopupApp.repoName, newDesc);
     activePopupApp.description = newDesc;
     popupDesc.textContent = newDesc || 'No description provided.';
-    
     exitEditMode();
     showToast('Changes saved!', 'success');
+    if (window.Auth) window.Auth.syncAll();
   });
 
-  // Icon Editing
   popupIconEditBtn.addEventListener('click', () => popupIconInput.click());
   popupIconInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file || !activePopupApp) return;
-    
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       const dataUrl = event.target.result;
-      Store.updateAppIcon(activePopupApp.repoName, dataUrl);
+      await Store.updateAppIcon(activePopupApp.repoName, dataUrl);
       activePopupApp.iconDataUrl = dataUrl;
       popupIcon.src = dataUrl;
       sphere?.updateNodeIcon(activePopupApp.repoName, dataUrl);
       showToast('Icon updated!', 'success');
+      if (window.Auth) window.Auth.syncAll();
     };
     reader.readAsDataURL(file);
     popupIconInput.value = '';
+  });
+
+  // ─── Communication Bridge ──────────────────────────────────────────────────
+  window.addEventListener('message', async (event) => {
+    if (!currentShellApp) return;
+    const { type, payload } = event.data;
+
+    if (type === 'PANOPTICON_SYNC') {
+      await Store.setAppState(currentShellApp.repoName, payload);
+      showToast(`${currentShellApp.repoName} state synced!`, 'success');
+      if (window.Auth) window.Auth.syncAll();
+    }
+    
+    if (type === 'PANOPTICON_READY') {
+      const state = await Store.getAppState(currentShellApp.repoName);
+      if (state) {
+        appFrame.contentWindow.postMessage({ type: 'PANOPTICON_LOAD', payload: state }, '*');
+      }
+    }
   });
 
   // ─── Update Manager ───────────────────────────────────────────────────────
@@ -504,18 +507,12 @@
 
     async init() {
       if (!('serviceWorker' in navigator)) return;
-
       try {
-        // Register stable URL
         this.registration = await navigator.serviceWorker.register('./sw.js');
-        
-        // Check for existing waiting worker
         if (this.registration.waiting) {
           this.waitingWorker = this.registration.waiting;
           this.showUpdateUI();
         }
-
-        // Monitor registration states
         this.registration.addEventListener('updatefound', () => {
           const installing = this.registration.installing;
           if (!installing) return;
@@ -526,15 +523,12 @@
             }
           });
         });
-
-        // Listen for controllerchange (reload)
         let refreshing = false;
         navigator.serviceWorker.addEventListener('controllerchange', () => {
           if (refreshing) return;
           window.location.reload();
           refreshing = true;
         });
-
         this.setupUI();
       } catch (err) {
         console.error('SW Registration failed:', err);
@@ -546,7 +540,6 @@
       const badge = document.getElementById('settings-badge');
       const status = document.getElementById('update-status-text');
       const action = document.getElementById('update-action-container');
-
       toast?.removeAttribute('hidden');
       badge?.removeAttribute('hidden');
       if (status) status.textContent = 'Update available';
@@ -572,7 +565,6 @@
           warning?.removeAttribute('hidden');
           modal?.removeAttribute('hidden');
         } else {
-          // No apps? Update immediately!
           this.waitingWorker.postMessage({ type: 'SKIP_WAITING' });
         }
       };
@@ -602,30 +594,35 @@
       cancelBtn?.addEventListener('click', () => modal?.setAttribute('hidden', ''));
       confirmBtn?.addEventListener('click', async () => {
         showToast('Performing Hard Refresh...', 'info');
-        
-        // 1. Unlink Service Worker immediately
-        if (this.waitingWorker) {
-          this.waitingWorker.postMessage({ type: 'SKIP_WAITING' });
-        }
-        
-        // 2. Nuclear Reset: Unregister and Clear all caches
-        // This simulates a manual Shift + Cmd + R 
+        if (this.waitingWorker) this.waitingWorker.postMessage({ type: 'SKIP_WAITING' });
         try {
           const registrations = await navigator.serviceWorker.getRegistrations();
           for (let r of registrations) await r.unregister();
-          
           const cacheNames = await caches.keys();
           for (let name of cacheNames) await caches.delete(name);
-          
-          // 3. Force reload from server
           window.location.reload(true);
         } catch (e) {
           window.location.reload();
         }
       });
 
+      const cloudBtn = document.getElementById('cloud-sync-btn');
+      cloudBtn?.addEventListener('click', async () => {
+        cloudBtn.disabled = true;
+        cloudBtn.textContent = 'Syncing...';
+        try {
+          if (window.Auth) await window.Auth.syncAll();
+          showToast('All apps synced to cloud!', 'success');
+        } catch (e) {
+          showToast('Sync failed: ' + e.message, 'error');
+        } finally {
+          cloudBtn.disabled = false;
+          cloudBtn.textContent = 'Force Cloud Sync';
+        }
+      });
+
       appResetBtn?.addEventListener('click', async () => {
-        if (confirm('This will clear the app cache and reload. Continue?')) {
+        if (confirm('Nuclear Reset? This clears EVERYTHING.')) {
           const registrations = await navigator.serviceWorker.getRegistrations();
           for (let registration of registrations) await registration.unregister();
           const names = await caches.keys();
@@ -636,7 +633,6 @@
     }
   }
 
-  // Initialize Update Manager
   const updater = new UpdateManager();
 
   // ─── Toast ────────────────────────────────────────────────────────────────
@@ -660,7 +656,6 @@
   }
 
   // ─── Go! ──────────────────────────────────────────────────────────────────
-  // Use window.onload so THREE (CDN script) is guaranteed loaded before boot runs
   if (document.readyState === 'complete') {
     boot();
   } else {

@@ -1,68 +1,114 @@
 // ============================================================
-// store.js — Panopticon State Management (global namespace)
+// store.js — Panopticon State Management (IndexedDB)
 // ============================================================
 window.Store = (() => {
 
-  const KEYS = {
-    LINKED_APPS: 'panopticon_linked_apps',
-    GITHUB_TOKEN: 'panopticon_github_token',
-    ZOOM_STATE: 'panopticon_zoom_state',
-  };
+  const DB_NAME = 'PanopticonDB';
+  const DB_VERSION = 1;
+  const STORE_NAME = 'kv';
+
+  // --- DB Helper ---
+  async function getDB() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
+      request.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          db.createObjectStore(STORE_NAME);
+        }
+      };
+      request.onsuccess = (e) => resolve(e.target.result);
+      request.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  async function get(key) {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const store = tx.objectStore(STORE_NAME);
+      const request = store.get(key);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async function set(key, val) {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      const request = store.put(val, key);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  }
 
   // --- Token ----------------------------------------------------------------
-  function getToken()        { return localStorage.getItem(KEYS.GITHUB_TOKEN) || ''; }
-  function saveToken(token)  { localStorage.setItem(KEYS.GITHUB_TOKEN, token.trim()); }
-  function clearToken()      { localStorage.removeItem(KEYS.GITHUB_TOKEN); }
+  function getToken()        { return localStorage.getItem('panopticon_github_token') || ''; }
+  function saveToken(token)  { localStorage.setItem('panopticon_github_token', token.trim()); }
+  function clearToken()      { localStorage.removeItem('panopticon_github_token'); }
 
   // --- Linked Apps ----------------------------------------------------------
-  function getLinkedApps() {
-    try { return JSON.parse(localStorage.getItem(KEYS.LINKED_APPS)) || []; }
-    catch { return []; }
+  async function getLinkedApps() {
+    return (await get('linked_apps')) || [];
   }
 
-  function isLinked(repoName) {
-    return getLinkedApps().some(a => a.repoName === repoName);
+  async function isLinked(repoName) {
+    const apps = await getLinkedApps();
+    return apps.some(a => a.repoName === repoName);
   }
 
-  function linkApp(entry) {
-    const apps = getLinkedApps().filter(a => a.repoName !== entry.repoName);
+  async function linkApp(entry) {
+    const apps = (await getLinkedApps()).filter(a => a.repoName !== entry.repoName);
     apps.push(entry);
-    localStorage.setItem(KEYS.LINKED_APPS, JSON.stringify(apps));
+    await set('linked_apps', apps);
   }
 
-  function unlinkApp(repoName) {
-    const apps = getLinkedApps().filter(a => a.repoName !== repoName);
-    localStorage.setItem(KEYS.LINKED_APPS, JSON.stringify(apps));
+  async function unlinkApp(repoName) {
+    const apps = (await getLinkedApps()).filter(a => a.repoName !== repoName);
+    await set('linked_apps', apps);
+    // Also clean up state
+    await set(`state_${repoName}`, null);
   }
 
-  function updateAppIcon(repoName, iconDataUrl) {
-    const apps = getLinkedApps().map(a =>
+  async function updateAppIcon(repoName, iconDataUrl) {
+    const apps = (await getLinkedApps()).map(a =>
       a.repoName === repoName ? { ...a, iconDataUrl } : a
     );
-    localStorage.setItem(KEYS.LINKED_APPS, JSON.stringify(apps));
+    await set('linked_apps', apps);
   }
 
-  function updateAppDescription(repoName, description) {
-    const apps = getLinkedApps().map(a =>
+  async function updateAppDescription(repoName, description) {
+    const apps = (await getLinkedApps()).map(a =>
       a.repoName === repoName ? { ...a, description } : a
     );
-    localStorage.setItem(KEYS.LINKED_APPS, JSON.stringify(apps));
+    await set('linked_apps', apps);
+  }
+
+  // --- App State Persistence (The "Sync" Feature) ---------------------------
+  async function getAppState(repoName) {
+    return await get(`state_${repoName}`);
+  }
+
+  async function setAppState(repoName, data) {
+    await set(`state_${repoName}`, data);
   }
 
   // --- Zoom Persistence -----------------------------------------------------
-  function getZoom() {
-    try { return JSON.parse(localStorage.getItem(KEYS.ZOOM_STATE)) || null; }
-    catch { return null; }
+  async function getZoom() {
+    return (await get('zoom_state')) || null;
   }
 
-  function saveZoom(zoom) {
-    localStorage.setItem(KEYS.ZOOM_STATE, JSON.stringify(zoom));
+  async function saveZoom(zoom) {
+    await set('zoom_state', zoom);
   }
 
   return { 
     getToken, saveToken, clearToken, 
     getLinkedApps, isLinked, linkApp, unlinkApp, 
     updateAppIcon, updateAppDescription,
+    getAppState, setAppState,
     getZoom, saveZoom 
   };
 })();

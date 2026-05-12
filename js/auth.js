@@ -20,7 +20,6 @@
   const isConfigured = !firebaseConfig.apiKey.includes("REPLACE_WITH");
 
   if (isConfigured) {
-    // Using the compat SDK patterns from the script tags in index.html
     firebase.initializeApp(firebaseConfig);
     auth = firebase.auth();
     db = firebase.firestore();
@@ -37,11 +36,11 @@
   const loggedInGroup = document.getElementById('auth-logged-in');
   const userEmailSpan = document.getElementById('user-email');
 
-  let mode = 'login'; // 'login' or 'signup'
+  let mode = 'login'; 
 
   function showModal(newMode) {
     if (!isConfigured) {
-      alert("Firebase is not yet configured. Please follow the instructions to add your API keys.");
+      alert("Firebase is not yet configured.");
       return;
     }
     mode = newMode;
@@ -59,30 +58,49 @@
   if (isConfigured) {
     auth.onAuthStateChanged(async (user) => {
       if (user) {
-        // User is logged in
         loggedOutGroup.setAttribute('hidden', '');
         loggedInGroup.removeAttribute('hidden');
         userEmailSpan.textContent = user.email;
 
-        // Try to sync token from Cloud if local is empty
-        const localToken = Store.getToken();
-        const doc = await db.collection('users').doc(user.uid).get();
+        // --- FULL SYNC ON LOGIN ---
+        const userRef = db.collection('users').doc(user.uid);
+        const doc = await userRef.get();
 
         if (doc.exists) {
-          const cloudToken = doc.data().ghToken;
-          if (cloudToken && !localToken) {
-            Store.saveToken(cloudToken);
-            window.location.reload(); // Refresh to boot with new token
+          const data = doc.data();
+          
+          // 1. Sync Token
+          if (data.ghToken && !Store.getToken()) {
+            Store.saveToken(data.ghToken);
           }
-        } else if (localToken) {
-          // If cloud is empty but local has token, sync it up
-          await db.collection('users').doc(user.uid).set({ ghToken: localToken }, { merge: true });
+          
+          // 2. Sync App List
+          if (data.linkedApps) {
+            const localApps = await Store.getLinkedApps();
+            if (localApps.length === 0) {
+              for (const app of data.linkedApps) {
+                await Store.linkApp(app);
+              }
+              // Force reload to init sphere with new apps
+              window.location.reload();
+              return;
+            }
+          }
+          
+          // 3. Sync App States (Sub-collection)
+          const statesSnap = await userRef.collection('states').get();
+          for (const stateDoc of statesSnap.docs) {
+            const repoName = stateDoc.id;
+            const stateData = stateDoc.data().payload;
+            const localState = await Store.getAppState(repoName);
+            if (!localState) {
+              await Store.setAppState(repoName, stateData);
+            }
+          }
         }
       } else {
-        // User is logged out
         loggedOutGroup.removeAttribute('hidden');
         loggedInGroup.setAttribute('hidden', '');
-        if (window.Main) window.Main.setTabBadge('settings-tab-cloud', true);
       }
     });
   }
@@ -93,10 +111,37 @@
     showSignup: () => showModal('signup'),
     logout: () => auth.signOut(),
 
-    // Sync local token to cloud
     syncToken: async (token) => {
       if (auth && auth.currentUser) {
         await db.collection('users').doc(auth.currentUser.uid).set({ ghToken: token }, { merge: true });
+      }
+    },
+
+    // Nuclear Sync: Push all local data to cloud
+    syncAll: async () => {
+      if (!auth || !auth.currentUser) return;
+      const uid = auth.currentUser.uid;
+      const userRef = db.collection('users').doc(uid);
+      
+      const apps = await Store.getLinkedApps();
+      const token = Store.getToken();
+      
+      // Sync list and token
+      await userRef.set({ 
+        ghToken: token,
+        linkedApps: apps,
+        lastSync: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+
+      // Sync individual app states
+      for (const app of apps) {
+        const state = await Store.getAppState(app.repoName);
+        if (state) {
+          await userRef.collection('states').doc(app.repoName).set({
+            payload: state,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        }
       }
     }
   };
