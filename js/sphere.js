@@ -354,7 +354,9 @@ class PanopticonSphere {
   }
 
   addNode(appEntry) {
-    if (this.nodes.has(appEntry.repoName)) this.removeNode(appEntry.repoName);
+    const repoName = appEntry.repoName || appEntry.name;
+    if (!repoName) return;
+    if (this.nodes.has(repoName)) this.removeNode(repoName);
 
     let slot = 0;
     while (this.usedSlots.has(slot) && slot < this._slotPositions.length) slot++;
@@ -402,7 +404,7 @@ class PanopticonSphere {
     nodeGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
 
     this.group.add(nodeGroup);
-    this.nodes.set(appEntry.repoName, {
+    this.nodes.set(repoName, {
       nodeGroup, disc, iconMat, iconTex, appEntry, slot, glowMat,
       glowSprite: glow,
       targetScale: 1, targetGlow: 0

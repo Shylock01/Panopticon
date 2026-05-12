@@ -77,7 +77,15 @@ window.Store = (() => {
 
   // --- Linked Apps ----------------------------------------------------------
   async function getLinkedApps() {
-    return (await get('linked_apps')) || [];
+    const apps = (await get('linked_apps')) || [];
+    // Ensure backward compatibility with old property names
+    return apps.map(a => ({
+      repoName:    a.repoName    || a.name,
+      pagesUrl:    a.pagesUrl    || a.pages,
+      iconDataUrl: a.iconDataUrl || a.icon,
+      description: a.description || a.desc || '',
+      iconColor:   a.iconColor   || a.color,
+    }));
   }
 
   async function isLinked(repoName) {
