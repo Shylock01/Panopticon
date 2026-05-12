@@ -17,7 +17,26 @@ window.Store = (() => {
           db.createObjectStore(STORE_NAME);
         }
       };
-      request.onsuccess = (e) => resolve(e.target.result);
+      request.onsuccess = async (e) => {
+        const db = e.target.result;
+        // Migration check
+        const migratedKey = 'panopticon_idb_migrated';
+        if (!localStorage.getItem(migratedKey)) {
+          console.log('Migrating localStorage to IndexedDB...');
+          try {
+            const apps = JSON.parse(localStorage.getItem('panopticon_linked_apps')) || [];
+            const zoom = JSON.parse(localStorage.getItem('panopticon_zoom_state'));
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            const store = tx.objectStore(STORE_NAME);
+            if (apps.length > 0) store.put(apps, 'linked_apps');
+            if (zoom) store.put(zoom, 'zoom_state');
+            localStorage.setItem(migratedKey, 'true');
+          } catch (err) {
+            console.error('Migration failed:', err);
+          }
+        }
+        resolve(db);
+      };
       request.onerror = (e) => reject(e.target.error);
     });
   }

@@ -75,7 +75,7 @@
           }
           
           // 2. Sync App List
-          if (data.linkedApps) {
+          if (data.linkedApps && data.linkedApps.length > 0) {
             const localApps = await Store.getLinkedApps();
             if (localApps.length === 0) {
               for (const app of data.linkedApps) {
