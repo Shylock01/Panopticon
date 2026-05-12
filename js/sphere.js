@@ -440,8 +440,8 @@ class PanopticonSphere {
   _bindEvents() {
     const el = this.canvas;
 
-    this._upBound   = this._up.bind(this);
-    this._moveBound = this._move.bind(this);
+    this._upBound   = () => this._up();
+    this._moveBound = (e) => this._move(e.clientX, e.clientY);
     this._resizeBound = this._resize.bind(this);
 
     el.addEventListener('mousedown',  e => this._down(e.clientX, e.clientY));
