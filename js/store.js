@@ -79,13 +79,19 @@ window.Store = (() => {
   async function getLinkedApps() {
     const apps = (await get('linked_apps')) || [];
     // Ensure backward compatibility with old property names
-    return apps.map(a => ({
-      repoName:    a.repoName    || a.name,
-      pagesUrl:    a.pagesUrl    || a.pages,
-      iconDataUrl: a.iconDataUrl || a.icon,
-      description: a.description || a.desc || '',
-      iconColor:   a.iconColor   || a.color,
-    }));
+    return apps.map(a => {
+      let pagesUrl = a.pagesUrl || a.pages || '';
+      if (pagesUrl && !pagesUrl.startsWith('http')) {
+        pagesUrl = 'https://' + pagesUrl;
+      }
+      return {
+        repoName:    a.repoName    || a.name,
+        pagesUrl:    pagesUrl,
+        iconDataUrl: a.iconDataUrl || a.icon,
+        description: a.description || a.desc || '',
+        iconColor:   a.iconColor   || a.color,
+      };
+    });
   }
 
   async function isLinked(repoName) {

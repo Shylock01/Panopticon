@@ -10,6 +10,7 @@
   let cachedRepos   = [];
   let activePopupApp = null;
   let currentShellApp = null;
+  let shellHideTimeout = null;
 
   // ─── DOM refs ────────────────────────────────────────────────────────────
   const canvas         = document.getElementById('sphere-canvas');
@@ -339,10 +340,20 @@
     if (!appEntry) return;
     currentShellApp = appEntry;
 
-    // Ensure the iframe has the correct URL. 
-    // We reload if it's not already pointing to this app's URL.
-    if (appFrame.src !== appEntry.pagesUrl) {
-      appFrame.src = appEntry.pagesUrl;
+    // Clear any pending hide timeout to prevent race conditions
+    if (shellHideTimeout) {
+      clearTimeout(shellHideTimeout);
+      shellHideTimeout = null;
+    }
+
+    // Ensure the iframe has the correct URL.
+    // Use trailing slash normalization for more robust comparison
+    const targetUrl = appEntry.pagesUrl;
+    const currentUrl = appFrame.src.replace(/\/$/, '');
+    const normalizedTarget = targetUrl.replace(/\/$/, '');
+
+    if (currentUrl !== normalizedTarget) {
+      appFrame.src = targetUrl;
     }
 
     appShell.removeAttribute('hidden');
@@ -388,11 +399,14 @@
     const repo = currentShellApp.repoName;
     backgroundApps.add(repo);
     sphere?.setNodeBackground(repo, true);
+    if (shellHideTimeout) clearTimeout(shellHideTimeout);
+    
     appShell.classList.add('app-shell--hiding');
-    setTimeout(() => {
+    shellHideTimeout = setTimeout(() => {
       appShell.setAttribute('hidden', '');
       appShell.classList.remove('app-shell--hiding');
       currentShellApp = null;
+      shellHideTimeout = null;
     }, 400);
     showToast(`${repo} is backgrounded.`, 'success');
   });
@@ -402,12 +416,15 @@
     const repo = currentShellApp.repoName;
     backgroundApps.delete(repo);
     sphere?.setNodeBackground(repo, false);
+    if (shellHideTimeout) clearTimeout(shellHideTimeout);
+
     appShell.classList.add('app-shell--hiding');
-    setTimeout(() => {
+    shellHideTimeout = setTimeout(() => {
       appShell.setAttribute('hidden', '');
       appShell.classList.remove('app-shell--hiding');
       appFrame.src = 'about:blank';
       currentShellApp = null;
+      shellHideTimeout = null;
     }, 400);
     showToast(`${repo} closed.`, 'info');
   });
@@ -488,7 +505,7 @@
 
   // ─── Communication Bridge ──────────────────────────────────────────────────
   window.addEventListener('message', async (event) => {
-    if (!currentShellApp) return;
+    if (!currentShellApp || !event.data || typeof event.data !== 'object') return;
     const { type, payload } = event.data;
 
     if (type === 'PANOPTICON_SYNC') {
