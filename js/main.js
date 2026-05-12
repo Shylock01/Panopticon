@@ -300,7 +300,10 @@
     popupLaunch.href           = appEntry.pagesUrl;
     popupUnlink.classList.remove('btn-danger-confirm');
 
-    // Dynamic Button State
+    // Always start in View mode
+    exitEditMode();
+
+    // Dynamic Button State (Must be after exitEditMode to avoid visibility override)
     if (backgroundApps.has(appEntry.repoName)) {
       popupLaunch.setAttribute('hidden', '');
       popupBgMgmt.removeAttribute('hidden');
@@ -312,9 +315,6 @@
       popupLaunch.classList.remove('btn-success');
       popupLaunch.textContent = 'Launch App';
     }
-
-    // Always start in View mode
-    exitEditMode();
 
     nodePopup.removeAttribute('hidden');
     requestAnimationFrame(() => nodePopup.classList.add('visible'));
