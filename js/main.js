@@ -122,7 +122,8 @@
   async function initSphere() {
     try {
       if (sphere) sphere.destroy();
-      sphere = new PanopticonSphere(canvas, showNodePopup);
+      const zoom = await Store.getZoom();
+      sphere = new PanopticonSphere(canvas, showNodePopup, zoom);
       const apps = await Store.getLinkedApps();
       apps.forEach(app => sphere.addNode(app));
       // Start camera facing the most recently added app

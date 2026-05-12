@@ -40,7 +40,7 @@ function _fibPositions(n, r) {
 }
 
 class PanopticonSphere {
-  constructor(canvas, onNodeClick) {
+  constructor(canvas, onNodeClick, initialZoom = null) {
     if (typeof THREE === 'undefined') {
       throw new Error('Three.js is not loaded. Check your internet connection and reload.');
     }
@@ -70,7 +70,8 @@ class PanopticonSphere {
     this._targetPhi       = null;
 
     // Zoom state
-    const savedZoom = (typeof Store !== 'undefined') ? Store.getZoom() : null;
+    // Zoom state
+    const savedZoom = initialZoom;
     this._radius         = savedZoom ? savedZoom.radius : CAM_RADIUS;
     this._targetRadius   = this._radius;
     this._defaultRadius  = this._radius;
