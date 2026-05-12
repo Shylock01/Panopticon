@@ -300,9 +300,11 @@
     // Dynamic Button State
     if (backgroundApps.has(appEntry.repoName)) {
       popupLaunch.textContent = 'Open App';
+      popupLaunch.classList.remove('btn-primary');
       popupLaunch.classList.add('btn-success');
     } else {
       popupLaunch.textContent = 'Launch App';
+      popupLaunch.classList.add('btn-primary');
       popupLaunch.classList.remove('btn-success');
     }
 
