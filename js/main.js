@@ -335,27 +335,30 @@
 
   popupClose.addEventListener('click', hideNodePopup);
   
-  popupLaunch.addEventListener('click', (e) => {
-    e.preventDefault();
-    if (!activePopupApp) return;
-    currentShellApp = activePopupApp;
-    if (!backgroundApps.has(currentShellApp.repoName)) {
-      appFrame.src = currentShellApp.pagesUrl;
+  function openApp(appEntry) {
+    if (!appEntry) return;
+    currentShellApp = appEntry;
+
+    // Ensure the iframe has the correct URL. 
+    // We reload if it's not already pointing to this app's URL.
+    if (appFrame.src !== appEntry.pagesUrl) {
+      appFrame.src = appEntry.pagesUrl;
     }
+
     appShell.removeAttribute('hidden');
     appShell.classList.remove('app-shell--hiding');
     shellControls.setAttribute('hidden', '');
     hideNodePopup();
+  }
+
+  popupLaunch.addEventListener('click', (e) => {
+    e.preventDefault();
+    openApp(activePopupApp);
   });
 
   popupResumeBtn.addEventListener('click', (e) => {
     e.preventDefault();
-    if (!activePopupApp) return;
-    currentShellApp = activePopupApp;
-    appShell.removeAttribute('hidden');
-    appShell.classList.remove('app-shell--hiding');
-    shellControls.setAttribute('hidden', '');
-    hideNodePopup();
+    openApp(activePopupApp);
   });
 
   popupTerminateBtn.addEventListener('click', () => {

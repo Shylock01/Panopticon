@@ -35,15 +35,22 @@ window.GH = (() => {
       if (batch.length < 100) break;
       page++;
     }
-    return repos.map(r => ({
-      repoName:    r.name,
-      fullName:    r.full_name,
-      description: r.description || '',
-      htmlUrl:     r.html_url,
-      pagesUrl:    r.homepage || `https://${r.owner.login}.github.io/${r.name}/`,
-      isPrivate:   r.private,
-      updatedAt:   r.updated_at,
-    }));
+    return repos.map(r => {
+      let rawUrl = r.homepage || `https://${r.owner.login}.github.io/${r.name}/`;
+      // Ensure protocol
+      if (rawUrl && !rawUrl.startsWith('http')) {
+        rawUrl = 'https://' + rawUrl;
+      }
+      return {
+        repoName:    r.name,
+        fullName:    r.full_name,
+        description: r.description || '',
+        htmlUrl:     r.html_url,
+        pagesUrl:    rawUrl,
+        isPrivate:   r.private,
+        updatedAt:   r.updated_at,
+      };
+    });
   }
 
   // ── Favicon fetching ─────────────────────────────────────────────────────
