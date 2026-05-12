@@ -71,8 +71,8 @@ class PanopticonSphere {
 
     // Zoom state
     // Zoom state
-    const savedZoom = initialZoom;
-    this._radius         = savedZoom ? savedZoom.radius : CAM_RADIUS;
+    const savedZoom = initialZoom || {};
+    this._radius         = (typeof savedZoom.radius === 'number') ? savedZoom.radius : CAM_RADIUS;
     this._targetRadius   = this._radius;
     this._defaultRadius  = this._radius;
     this._zoomLocked     = savedZoom ? savedZoom.locked : false;
@@ -499,7 +499,6 @@ class PanopticonSphere {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h, false);
   }
-  }
 
   _down(x, y) {
     this._isDragging = true;
@@ -539,6 +538,7 @@ class PanopticonSphere {
   }
 
   _up() {
+    this._isDragging = false;
     this._isHolding = false;
     this.canvas.style.cursor = 'grab';
     
