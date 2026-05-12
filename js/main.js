@@ -52,7 +52,6 @@
   const shellControls      = document.getElementById('shell-controls');
   const shellBackgroundBtn = document.getElementById('shell-background-btn');
   const shellCloseBtn      = document.getElementById('shell-close-btn');
-  const appUpdateBtn   = document.getElementById('app-update-btn');
   const appResetBtn    = document.getElementById('app-reset-btn');
   const settingsBadge  = document.getElementById('settings-badge');
   const badgeTabLink   = document.getElementById('badge-tab-link');
@@ -495,52 +494,124 @@
     popupIconInput.value = '';
   });
 
-  // ─── Maintenance ──────────────────────────────────────────────────────────
-  appUpdateBtn.addEventListener('click', async () => {
-    if ('serviceWorker' in navigator) {
-      const reg = await navigator.serviceWorker.getRegistration();
-      if (!reg) return;
+  // ─── Update Manager ───────────────────────────────────────────────────────
+  class UpdateManager {
+    constructor() {
+      this.registration = null;
+      this.waitingWorker = null;
+      this.init();
+    }
 
-      // If there's already a worker waiting, just activate it
-      if (reg.waiting) {
-        showToast('Activating update...', 'info');
-        reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-        return;
+    async init() {
+      if (!('serviceWorker' in navigator)) return;
+
+      try {
+        // Register with cache-bust to ensure SW check on GitHub Pages
+        this.registration = await navigator.serviceWorker.register('./sw.js?v=' + Date.now());
+        
+        // Monitor registration states
+        this.registration.addEventListener('updatefound', () => this.trackUpdate(this.registration.installing));
+        if (this.registration.waiting) this.trackUpdate(this.registration.waiting);
+
+        // Listen for controllerchange (reload)
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (refreshing) return;
+          window.location.reload();
+          refreshing = true;
+        });
+
+        this.setupUI();
+      } catch (err) {
+        console.error('SW Registration failed:', err);
       }
+    }
 
-      showToast('Checking for updates...', 'info');
-      await reg.update();
-      
-      // Short delay to see if an update was found
-      setTimeout(() => {
-        if (reg.installing) {
-          showToast('Update found! Downloading...', 'success');
-        } else if (reg.waiting) {
-          showToast('Update ready. Click again to apply.', 'success');
+    trackUpdate(worker) {
+      if (!worker) return;
+      worker.addEventListener('statechange', () => {
+        if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+          this.waitingWorker = worker;
+          this.showUpdateUI();
+        }
+      });
+    }
+
+    showUpdateUI() {
+      const toast = document.getElementById('update-toast');
+      const badge = document.getElementById('settings-badge');
+      const status = document.getElementById('update-status-text');
+      const action = document.getElementById('update-action-container');
+
+      toast?.removeAttribute('hidden');
+      badge?.removeAttribute('hidden');
+      if (status) status.textContent = 'Update available';
+      action?.removeAttribute('hidden');
+    }
+
+    setupUI() {
+      const toastBtn = document.getElementById('update-toast-btn');
+      const checkBtn = document.getElementById('check-update-btn');
+      const nowBtn   = document.getElementById('update-now-btn');
+      const cancelBtn = document.getElementById('update-cancel-btn');
+      const confirmBtn = document.getElementById('update-confirm-btn');
+      const modal = document.getElementById('update-modal');
+      const warning = document.getElementById('update-warning-apps');
+
+      const triggerPrompt = () => {
+        if (!this.waitingWorker) {
+          this.registration.update();
+          return;
+        }
+        if (backgroundApps.size > 0) {
+          warning?.removeAttribute('hidden');
         } else {
-          showToast('Panopticon is up to date.', 'success');
-          if (badgeTabSystem) badgeTabSystem.setAttribute('hidden', '');
-          checkGlobalBadge();
+          warning?.setAttribute('hidden', '');
         }
-      }, 1500);
-    }
-  });
+        modal?.removeAttribute('hidden');
+      };
 
-  appResetBtn.addEventListener('click', async () => {
-    if (confirm('This will clear the app cache and reload. Continue?')) {
-      if ('serviceWorker' in navigator) {
-        const registrations = await navigator.serviceWorker.getRegistrations();
-        for (let registration of registrations) {
-          await registration.unregister();
+      toastBtn?.addEventListener('click', triggerPrompt);
+      nowBtn?.addEventListener('click', triggerPrompt);
+      
+      checkBtn?.addEventListener('click', async () => {
+        const btnText = checkBtn.textContent;
+        checkBtn.textContent = 'Checking...';
+        checkBtn.disabled = true;
+        try {
+          await this.registration.update();
+          setTimeout(() => {
+            if (!this.registration.waiting && !this.registration.installing) {
+              showToast('Panopticon is up to date.', 'info');
+            }
+            checkBtn.textContent = btnText;
+            checkBtn.disabled = false;
+          }, 1500);
+        } catch (e) {
+          checkBtn.textContent = btnText;
+          checkBtn.disabled = false;
         }
-      }
-      const names = await caches.keys();
-      for (let name of names) {
-        await caches.delete(name);
-      }
-      window.location.reload(true);
+      });
+
+      cancelBtn?.addEventListener('click', () => modal?.setAttribute('hidden', ''));
+      confirmBtn?.addEventListener('click', () => {
+        this.waitingWorker?.postMessage({ type: 'SKIP_WAITING' });
+      });
+
+      appResetBtn?.addEventListener('click', async () => {
+        if (confirm('This will clear the app cache and reload. Continue?')) {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          for (let registration of registrations) await registration.unregister();
+          const names = await caches.keys();
+          for (let name of names) await caches.delete(name);
+          window.location.reload();
+        }
+      });
     }
-  });
+  }
+
+  // Initialize Update Manager
+  const updater = new UpdateManager();
 
   // ─── Toast ────────────────────────────────────────────────────────────────
   function showToast(message, type = 'info') {

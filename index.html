@@ -255,19 +255,68 @@
         </div>
       </div>
 
-      <!-- Tab 3: System -->
-      <div id="settings-tab-system" class="settings-tab-panel">
-        <div class="maintenance-group">
-          <p class="auth-hint">Manage app updates and local data.</p>
-          <button id="app-update-btn" class="btn btn-outline btn-sm btn-full">Check for Updates</button>
+      <!-- System / Update Tab -->
+      <div id="settings-tab-system" class="settings-content" hidden>
+        <div class="settings-section">
+          <h3 class="settings-subtitle">Application Status</h3>
+          <div class="system-status-card">
+            <div class="system-status-item">
+              <span class="status-label">Current Version</span>
+              <span class="status-value version-label">v1.1.21</span>
+            </div>
+            <div class="system-status-item">
+              <span class="status-label">Update Status</span>
+              <span id="update-status-text" class="status-value">Up to date</span>
+            </div>
+          </div>
+          <div id="update-action-container" hidden>
+            <button id="update-now-btn" class="btn btn-success btn-full" style="margin-top: 12px;">Update to v1.1.21</button>
+          </div>
+          <button id="check-update-btn" class="btn btn-outline btn-sm btn-full" style="margin-top: 12px;">Check for Updates</button>
+        </div>
+        
+        <div class="settings-section">
+          <h3 class="settings-subtitle">Troubleshooting</h3>
+          <p class="settings-hint">If you're experiencing issues, you can clear the local cache. This will not unlink your applications.</p>
           <button id="app-reset-btn" class="btn btn-danger-outline btn-sm btn-full">Hard Reset App Cache</button>
         </div>
-        <div class="version-label">v1.1.20</div>
       </div>
     </div>
     </div>
+  </div>
 
-    <!-- Auth Modal -->
+  <!-- ── Update Notification ──────────────────────────────────── -->
+  <div id="update-toast" class="update-toast" hidden>
+    <div class="update-toast-content">
+      <div class="update-toast-icon">🚀</div>
+      <div class="update-toast-text">
+        <strong>New Update Available</strong>
+        <span>Version v1.1.21 is ready to install.</span>
+      </div>
+      <button id="update-toast-btn" class="btn btn-primary btn-sm">Update</button>
+    </div>
+  </div>
+
+  <!-- ── Update Modal (Warning) ────────────────────────────────── -->
+  <div id="update-modal" class="modal" role="dialog" aria-modal="true" hidden>
+    <div class="modal-backdrop"></div>
+    <div class="modal-panel">
+      <div class="modal-header">
+        <h2 class="modal-title">Apply Update?</h2>
+      </div>
+      <div class="modal-body">
+        <p>A new version of Panopticon is ready. Applying this update will refresh the page.</p>
+        <div id="update-warning-apps" class="update-warning-box" hidden>
+          <strong>⚠️ Warning:</strong>
+          <p>You have applications running in the background. Updating will close these apps. Do you wish to continue?</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="update-cancel-btn" class="btn btn-outline btn-sm">Not Now</button>
+        <button id="update-confirm-btn" class="btn btn-primary btn-sm">Close Apps & Update</button>
+      </div>
+    </div>
+  </div>   <!-- Auth Modal -->
     <div id="auth-modal" class="auth-modal" hidden>
       <div class="auth-modal-content">
         <h2 id="auth-modal-title">Login</h2>
@@ -322,43 +371,5 @@
   <script src="js/github.js"></script>
   <script src="js/sphere.js"></script>
   <script src="js/main.js"></script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').then(reg => {
-          // Helper to notify Main.js about the update
-          const notify = (worker) => {
-            if (!worker) return;
-            const check = () => {
-              if (worker.state === 'installed') {
-                if (window.Main) window.Main.setTabBadge('settings-tab-system', true);
-              }
-            };
-            check();
-            worker.addEventListener('statechange', check);
-          };
-
-          // Handle existing waiting/installing workers on load
-          if (reg.waiting) notify(reg.waiting);
-          if (reg.installing) notify(reg.installing);
-
-          // Listen for future updates found in background
-          reg.onupdatefound = () => notify(reg.installing);
-          
-          // Check for updates every time the app is opened
-          reg.update();
-        });
-      });
-
-      // When the new SW takes control, reload to show new content
-      let refreshing = false;
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (!refreshing) {
-          window.location.reload();
-          refreshing = true;
-        }
-      });
-    }
-  </script>
 </body>
 </html>
