@@ -34,9 +34,11 @@ function _fibPositions(n, r) {
     );
   });
   const poleExclude = r * Math.cos(0.38); // ~22° from each pole
+  const startPoint = new THREE.Vector3(0, 0, r); // Default camera view is at (0, 0, r)
+  
   return raw
     .filter(p => Math.abs(p.y) <= poleExclude)
-    .sort((a, b) => Math.abs(a.y) - Math.abs(b.y));
+    .sort((a, b) => a.distanceToSquared(startPoint) - b.distanceToSquared(startPoint));
 }
 
 class PanopticonSphere {
@@ -343,10 +345,18 @@ class PanopticonSphere {
     const img = new Image();
     img.onload = () => {
       ctx.clearRect(0, 0, size, size);
+      
+      const padding = size * 0.15;
+      const s = size - padding * 2;
+      
       ctx.beginPath();
       ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
       ctx.clip();
-      ctx.drawImage(img, 0, 0, size, size);
+      
+      ctx.fillStyle = '#000000';
+      ctx.fill();
+      
+      ctx.drawImage(img, padding, padding, s, s);
       tex.needsUpdate = true;
     };
     img.src = iconDataUrl;
@@ -366,9 +376,8 @@ class PanopticonSphere {
     const normal  = slotPos.clone().normalize();
 
     const iconTex = this._circularTexture(appEntry.iconDataUrl);
-    const iconMat = new THREE.MeshStandardMaterial({ map: iconTex, roughness: 0.55, metalness: 0.05 });
-    const darkMat = new THREE.MeshStandardMaterial({ color: 0x22222c, roughness: 0.75, metalness: 0.15 });
-    const bevelMat = new THREE.MeshStandardMaterial({ color: 0x2e2e3c, roughness: 0.55, metalness: 0.25 });
+    const iconMat = new THREE.MeshStandardMaterial({ map: iconTex, roughness: 0.2, metalness: 0.1 });
+    const darkMat = new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 1.0, metalness: 0.0 });
 
     // Round disc: CylinderGeometry rotated so top cap (+Y→+Z) shows icon
     // CylinderGeometry groups: [lateral(0), topCap(1), bottomCap(2)]
@@ -378,13 +387,31 @@ class PanopticonSphere {
     const disc = new THREE.Mesh(discGeo, [darkMat, iconMat, darkMat]);
     disc.userData = { appEntry, slot }; // for raycasting
 
-    // Bevel torus rings the front edge
-    const bevelGeo = new THREE.TorusGeometry(NODE_R, BEVEL_TUBE, 8, 32);
-    const bevel = new THREE.Mesh(bevelGeo, bevelMat);
-    bevel.position.z = NODE_H / 2; // sit at front face edge
+    // Liquid glass dome overlay
+    const domeGeo = new THREE.SphereGeometry(NODE_R, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+    domeGeo.scale(1, 0.25, 1);
+    domeGeo.rotateX(Math.PI / 2);
+    const glassMat = new THREE.MeshPhysicalMaterial({
+      color: 0xffffff,
+      metalness: 0.9,
+      roughness: 0.05,
+      envMapIntensity: 1.0,
+      clearcoat: 1.0,
+      clearcoatRoughness: 0.1,
+      transparent: true,
+      opacity: 0.15
+    });
+    const dome = new THREE.Mesh(domeGeo, glassMat);
+    dome.position.z = NODE_H / 2; // sit directly on top of the icon face
+
+    // Outline ring (thin green border for background state)
+    const outlineMat = new THREE.MeshBasicMaterial({ color: 0x22ff88, transparent: true, opacity: 0 });
+    const outlineGeo = new THREE.TorusGeometry(NODE_R, 0.008, 8, 32);
+    const outlineRing = new THREE.Mesh(outlineGeo, outlineMat);
+    outlineRing.position.z = NODE_H / 2; // sit at front face edge
 
     const nodeGroup = new THREE.Group();
-    nodeGroup.add(disc, bevel);
+    nodeGroup.add(disc, dome, outlineRing);
 
     // Outer glow sprite (hidden by default)
     const glowMat = new THREE.SpriteMaterial({
@@ -412,7 +439,7 @@ class PanopticonSphere {
     };
 
     this.nodes.set(repoName, {
-      nodeGroup, disc, iconMat, iconTex, appEntry: normalizedEntry, slot, glowMat,
+      nodeGroup, disc, iconMat, iconTex, outlineMat, appEntry: normalizedEntry, slot, glowMat,
       glowSprite: glow,
       targetScale: 1, targetGlow: 0
     });
@@ -530,7 +557,7 @@ class PanopticonSphere {
     const move = Math.hypot(dx, dy);
     this._dragDist += move;
 
-    if (move > 10) this._holdCancelled = true;
+    if (move > 1) this._holdCancelled = true;
 
     // Horizontal drag → orbit left/right (theta)
     this._theta -= dx * DRAG_SENS;
@@ -656,8 +683,8 @@ class PanopticonSphere {
     // --- Hold-to-Lock Timer ---
     if (this._isHolding && !this._holdCancelled) {
       const elapsed = now - this._holdStartTime;
-      const DISPLAY_DELAY = 500;  // Don't show indicator for first 0.5s
-      const LOCK_TIME     = 1500; // Total time to lock (faster now!)
+      const DISPLAY_DELAY = 1000;  // Wait 1s before showing indicator
+      const LOCK_TIME     = 2000;  // Ring fills between 1s and 2s
 
       if (elapsed > DISPLAY_DELAY) {
         const progress = Math.min(1, (elapsed - DISPLAY_DELAY) / (LOCK_TIME - DISPLAY_DELAY));
@@ -681,13 +708,12 @@ class PanopticonSphere {
           // Visual Feedback
           if (this._ui.indicator) {
             this._ui.indicator.classList.add('locked');
-            this._ui.indicator.querySelector('.zoom-indicator-text').textContent = 'LOCKED';
             setTimeout(() => {
                 if (this._ui.indicator) {
                   this._ui.indicator.setAttribute('hidden', '');
                   this._ui.indicator.classList.remove('locked');
                 }
-            }, 800);
+            }, 600);
           }
 
           // Blue Double Flash
@@ -737,6 +763,13 @@ class PanopticonSphere {
       const curGlowS = entry.glowSprite.scale.x;
       const nextGlowS = curGlowS + (tGlowS - curGlowS) * LERP_SPEED;
       entry.glowSprite.scale.set(nextGlowS, nextGlowS, 1);
+      
+      // Lerp outline ring opacity
+      if (entry.outlineMat) {
+        const targetOutlineO = entry.isBackground ? 0.8 : 0;
+        const curOutlineO = entry.outlineMat.opacity;
+        entry.outlineMat.opacity = curOutlineO + (targetOutlineO - curOutlineO) * LERP_SPEED;
+      }
     });
 
     this.renderer.render(this.scene, this.camera);

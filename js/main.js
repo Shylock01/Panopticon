@@ -35,6 +35,7 @@
   const popupLaunch    = document.getElementById('popup-launch-btn');
   const popupUnlink    = document.getElementById('popup-unlink-btn');
   const popupClose     = document.getElementById('popup-close-btn');
+  const popupRefreshBtn= document.getElementById('popup-refresh-btn');
   const popupEditTrigger = document.getElementById('popup-edit-trigger');
   const popupEditActions = document.getElementById('popup-edit-actions');
   const popupDescView    = document.getElementById('popup-desc-view');
@@ -253,7 +254,8 @@
         </div>
         <button class="btn ${linked ? 'btn-linked' : 'btn-link-repo'}" data-repo="${esc(repo.repoName)}"
                 aria-label="${linked ? 'Unlink' : 'Link'} ${esc(repo.repoName)}">
-          ${linked ? '✓ Linked' : '+ Link'}
+          <span class="linked-text">${linked ? '✓ Linked' : '+ Link'}</span>
+          ${linked ? '<span class="unlink-text">Unlink</span>' : ''}
         </button>`;
       item.querySelector('button').addEventListener('click', () => handleLink(repo, item));
       fragment.appendChild(item);
@@ -263,7 +265,14 @@
 
   async function handleLink(repo, itemEl) {
     if (await Store.isLinked(repo.repoName)) {
-      showToast(`${repo.repoName} is already linked.`, 'info');
+      await Store.unlinkApp(repo.repoName);
+      sphere?.removeNode(repo.repoName);
+      showToast(`${repo.repoName} unlinked.`, 'info');
+      if (window.Auth) window.Auth.syncAll();
+      itemEl.classList.remove('repo-item--linked');
+      const btn = itemEl.querySelector('button');
+      btn.className = 'btn btn-link-repo';
+      btn.innerHTML = '<span class="linked-text">+ Link</span>';
       return;
     }
     const btn = itemEl.querySelector('button');
@@ -279,6 +288,15 @@
       iconColor:   color,
     };
 
+    let manifestIconUrl = null;
+    if (GH.fetchAppMeta) {
+      const meta = await GH.fetchAppMeta(repo.pagesUrl);
+      if (meta) {
+        if (meta.description) entry.description = meta.description;
+        if (meta.iconUrl) manifestIconUrl = meta.iconUrl;
+      }
+    }
+
     await Store.linkApp(entry);
     sphere?.addNode(entry);
     closeDrawer();
@@ -287,7 +305,7 @@
     // Sync to cloud
     if (window.Auth) window.Auth.syncAll();
 
-    GH.fetchFavicon(repo.pagesUrl).then(async favUrl => {
+    GH.fetchFavicon(repo.pagesUrl, manifestIconUrl).then(async favUrl => {
       if (favUrl) {
         await Store.updateAppIcon(repo.repoName, favUrl);
         sphere?.updateNodeIcon(repo.repoName, favUrl);
@@ -530,6 +548,40 @@
     };
     reader.readAsDataURL(file);
     popupIconInput.value = '';
+  });
+
+  popupRefreshBtn.addEventListener('click', async () => {
+    if (!activePopupApp) return;
+    const repo = activePopupApp;
+    popupRefreshBtn.classList.add('spin-anim');
+    try {
+      let manifestIconUrl = null;
+      if (GH.fetchAppMeta) {
+        const meta = await GH.fetchAppMeta(repo.pagesUrl);
+        if (meta) {
+          if (meta.description) {
+            repo.description = meta.description;
+            await Store.updateAppDescription(repo.repoName, meta.description);
+            popupDesc.textContent = meta.description;
+          }
+          if (meta.iconUrl) manifestIconUrl = meta.iconUrl;
+        }
+      }
+
+      const favUrl = await GH.fetchFavicon(repo.pagesUrl, manifestIconUrl);
+      if (favUrl) {
+        await Store.updateAppIcon(repo.repoName, favUrl);
+        repo.iconDataUrl = favUrl;
+        popupIcon.src = favUrl;
+        sphere?.updateNodeIcon(repo.repoName, favUrl);
+      }
+      showToast(`${repo.repoName} refreshed!`, 'success');
+      if (window.Auth) window.Auth.syncAll();
+    } catch (e) {
+      showToast(`Refresh failed: ${e.message}`, 'error');
+    } finally {
+      popupRefreshBtn.classList.remove('spin-anim');
+    }
   });
 
   // ─── Communication Bridge ──────────────────────────────────────────────────

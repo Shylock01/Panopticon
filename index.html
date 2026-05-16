@@ -36,15 +36,11 @@
   <div id="canvas-container" aria-hidden="true">
     <canvas id="sphere-canvas"></canvas>
     
-    <!-- Zoom Lock Indicator -->
     <div id="zoom-indicator" class="zoom-indicator" hidden>
-      <div class="zoom-indicator-ring">
-        <svg width="64" height="64" viewBox="0 0 64 64">
-          <circle cx="32" cy="32" r="26" class="zoom-ring-bg" />
-          <circle cx="32" cy="32" r="26" id="zoom-ring-progress" class="zoom-ring-fill" />
-        </svg>
-      </div>
-      <div class="zoom-indicator-text">HOLD TO LOCK</div>
+      <svg width="64" height="64" viewBox="0 0 64 64">
+        <circle cx="32" cy="32" r="26" class="zoom-ring-bg" />
+        <circle cx="32" cy="32" r="26" id="zoom-ring-progress" class="zoom-ring-fill" />
+      </svg>
     </div>
 
     <div id="zoom-flash" class="zoom-flash" hidden></div>
@@ -117,6 +113,12 @@
   <!-- ── Node Popup ────────────────────────────────────────────── -->
   <div id="node-popup" class="node-popup" role="dialog" aria-modal="true" aria-labelledby="popup-app-name" hidden>
     <div class="popup-top-actions">
+      <button id="popup-refresh-btn" class="icon-btn" aria-label="Refresh App Data" title="Refresh App Metadata">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+        </svg>
+      </button>
       <button id="popup-edit-trigger" class="popup-action-link" type="button">Edit</button>
       <button id="popup-close-btn" class="icon-btn" aria-label="Close app popup">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
@@ -261,7 +263,7 @@
           <div class="system-status-card">
             <div class="system-status-item">
               <span class="status-label">Current Version</span>
-              <span class="status-value version-label">v1.1.31</span>
+              <span class="status-value version-label">v1.2.0</span>
             </div>
             <div class="system-status-item">
               <span class="status-label">Update Status</span>
@@ -269,7 +271,7 @@
             </div>
           </div>
           <div id="update-action-container" hidden>
-            <button id="update-now-btn" class="btn btn-success btn-full" style="margin-top: 12px;">Update to v1.1.31</button>
+            <button id="update-now-btn" class="btn btn-success btn-full" style="margin-top: 12px;">Update to v1.2.0</button>
           </div>
           <button id="check-update-btn" class="btn btn-outline btn-sm btn-full" style="margin-top: 12px;">Check for Updates</button>
           <button id="cloud-sync-btn" class="btn btn-outline btn-sm btn-full" style="margin-top: 8px;">Force Cloud Sync</button>
@@ -285,7 +287,7 @@
       <div class="update-toast-icon">🚀</div>
       <div class="update-toast-text">
         <strong>New Update Available</strong>
-        <span>Version v1.1.31 is ready to install.</span>
+        <span>Version v1.2.0 is ready to install.</span>
       </div>
       <button id="update-toast-btn" class="btn btn-primary btn-sm">Update</button>
     </div>

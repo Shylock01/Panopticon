@@ -53,11 +53,41 @@ window.GH = (() => {
     });
   }
 
-  // ── Favicon fetching ─────────────────────────────────────────────────────
-  async function fetchFavicon(pagesUrl) {
+  // ── App Meta fetching ────────────────────────────────────────────────────
+  async function fetchAppMeta(pagesUrl) {
     if (!pagesUrl) return null;
     const base = pagesUrl.replace(/\/$/, '');
-    const candidates = [`${base}/favicon.ico`, `${base}/favicon.png`, `${base}/apple-touch-icon.png`];
+    let manifestData = null;
+    try {
+      const res = await fetch(`${base}/manifest.json`);
+      if (res.ok) {
+        manifestData = await res.json();
+      }
+    } catch (e) {}
+    
+    let description = null;
+    let iconUrl = null;
+    
+    if (manifestData) {
+      description = manifestData.description || manifestData.short_name || null;
+      if (manifestData.icons && manifestData.icons.length > 0) {
+        const icon = manifestData.icons[manifestData.icons.length - 1];
+        if (icon && icon.src) {
+           iconUrl = icon.src.startsWith('http') ? icon.src : `${base}/${icon.src.replace(/^\//, '')}`;
+        }
+      }
+    }
+    
+    return { description, iconUrl };
+  }
+
+  // ── Favicon fetching ─────────────────────────────────────────────────────
+  async function fetchFavicon(pagesUrl, manifestIconUrl) {
+    if (!pagesUrl) return null;
+    const base = pagesUrl.replace(/\/$/, '');
+    const candidates = [];
+    if (manifestIconUrl) candidates.push(manifestIconUrl);
+    candidates.push(`${base}/favicon.ico`, `${base}/favicon.png`, `${base}/apple-touch-icon.png`);
     for (const url of candidates) {
       try { const d = await _loadImageAsDataUrl(url); if (d) return d; } catch { /* try next */ }
     }
@@ -148,5 +178,5 @@ window.GH = (() => {
     return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
   }
 
-  return { fetchRepos, fetchFavicon, generateLetterIcon, ICON_COLORS };
+  return { fetchRepos, fetchAppMeta, fetchFavicon, generateLetterIcon, ICON_COLORS };
 })();
