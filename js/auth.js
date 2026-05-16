@@ -70,66 +70,75 @@
     auth.onAuthStateChanged(async (user) => {
       updateAuthUI(user);
       if (user) {
-        // --- FULL SYNC ON LOGIN ---
+        // --- REAL-TIME SYNC ---
         try {
           const userRef = db.collection('users').doc(user.uid);
-          const doc = await userRef.get();
-
-          if (doc.exists) {
-            const data = doc.data();
-            let needsReinit = false;
-            
-            // 1. Sync Token
-            if (data.ghToken && !Store.getToken()) {
-              Store.saveToken(data.ghToken);
-            }
-            
-            // 2. Sync App List
-            if (data.linkedApps && data.linkedApps.length > 0) {
-              const localApps = await Store.getLinkedApps();
-              if (localApps.length === 0) {
-                for (const app of data.linkedApps) {
-                  await Store.linkApp(app);
-                }
-                needsReinit = true;
+          
+          if (window._syncUnsubscribe) window._syncUnsubscribe();
+          
+          window._syncUnsubscribe = userRef.onSnapshot(async (doc) => {
+            if (doc.exists) {
+              const data = doc.data();
+              let needsReinit = false;
+              let needsStyleUpdate = false;
+              
+              // 1. Sync Token
+              if (data.ghToken && !Store.getToken()) {
+                Store.saveToken(data.ghToken);
               }
-            }
-            
-            // 3. Sync App States (Sub-collection)
-            const statesSnap = await userRef.collection('states').get();
-            for (const stateDoc of statesSnap.docs) {
-              const repoName = stateDoc.id;
-              const stateData = stateDoc.data().payload;
-              const localState = await Store.getAppState(repoName);
-              if (!localState) {
-                await Store.setAppState(repoName, stateData);
-                needsReinit = true; 
-              }
-            }
-
-            // 4. Sync Styles
-            if (data.stylesConfig) {
-              const localStyles = await Store.getStyles();
-              // Only pull if local has accountSync enabled or is new
-              if (!localStyles || localStyles.accountSync !== false) {
-                // Prevent infinite reload loop by verifying styles actually changed
-                if (!localStyles || JSON.stringify(localStyles) !== JSON.stringify(data.stylesConfig)) {
-                  await Store.saveStyles(data.stylesConfig);
+              
+              // 2. Sync App List
+              if (data.linkedApps && data.linkedApps.length > 0) {
+                const localApps = await Store.getLinkedApps();
+                if (localApps.length === 0) {
+                  for (const app of data.linkedApps) {
+                    await Store.linkApp(app);
+                  }
                   needsReinit = true;
                 }
               }
-            }
+              
+              // 3. Sync App States (Sub-collection)
+              // Note: For now, app states are synced once per session. 
+              // Can be migrated to onSnapshot if real-time state syncing is needed.
+              const statesSnap = await userRef.collection('states').get();
+              for (const stateDoc of statesSnap.docs) {
+                const repoName = stateDoc.id;
+                const stateData = stateDoc.data().payload;
+                const localState = await Store.getAppState(repoName);
+                if (!localState) {
+                  await Store.setAppState(repoName, stateData);
+                  needsReinit = true; 
+                }
+              }
 
-            if (needsReinit) {
-               if (window.Main && window.Main.initSphere) {
-                 await window.Main.initSphere();
-               } else {
-                 window.location.reload();
-               }
+              // 4. Sync Styles
+              if (data.stylesConfig) {
+                const localStyles = await Store.getStyles();
+                // Only pull if local has accountSync enabled or is new
+                if (!localStyles || localStyles.accountSync !== false) {
+                  // Prevent infinite reload loop by verifying styles actually changed
+                  if (!localStyles || JSON.stringify(localStyles) !== JSON.stringify(data.stylesConfig)) {
+                    await Store.saveStyles(data.stylesConfig);
+                    needsStyleUpdate = true;
+                  }
+                }
+              }
+
+              if (needsReinit || needsStyleUpdate) {
+                 if (window.Main && window.Main.initStyles && window.Main.initSphere) {
+                   if (needsStyleUpdate) await window.Main.initStyles();
+                   await window.Main.initSphere();
+                 } else {
+                   window.location.reload();
+                 }
+              }
             }
-          }
-        } catch (syncErr) {
-          console.error('Initial cloud sync failed:', syncErr);
+          }, (syncErr) => {
+            console.error('Real-time cloud sync failed:', syncErr);
+          });
+        } catch (err) {
+          console.error('Failed to attach sync listener:', err);
         }
       }
     });

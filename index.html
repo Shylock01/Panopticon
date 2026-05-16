@@ -304,8 +304,14 @@
           <hr class="style-divider">
           
           <div class="style-toggle-group">
-            <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
               <strong>Account Sync</strong>
+              <button id="style-sync-refresh-btn" class="icon-btn" title="Force Refresh Sync" style="padding: 4px; background: transparent; border: none; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="23 4 23 10 17 10"></polyline>
+                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                </svg>
+              </button>
             </div>
             <label class="switch">
               <input type="checkbox" id="style-account-sync" checked>

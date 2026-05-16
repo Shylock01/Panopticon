@@ -276,6 +276,23 @@
     autoSaveStyles();
   });
 
+  const styleSyncRefreshBtn = document.getElementById('style-sync-refresh-btn');
+  if (styleSyncRefreshBtn) {
+    styleSyncRefreshBtn.addEventListener('click', async () => {
+      styleSyncRefreshBtn.style.opacity = '0.5';
+      try {
+        if (window.Auth && window.Auth.syncAll) {
+          await window.Auth.syncAll();
+          showToast('Sync refreshed!', 'success');
+        }
+      } catch (e) {
+        showToast('Sync failed.', 'error');
+      } finally {
+        styleSyncRefreshBtn.style.opacity = '1';
+      }
+    });
+  }
+
   styleResetBtn.addEventListener('click', () => {
     const defTheme = 'blue';
     const defScale = 1.0;
@@ -894,6 +911,12 @@
       ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])
     );
   }
+
+  // ─── Global Expose ────────────────────────────────────────────────────────
+  window.Main = {
+    initStyles,
+    initSphere
+  };
 
   // ─── Go! ──────────────────────────────────────────────────────────────────
   if (document.readyState === 'complete') {
