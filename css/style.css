@@ -1224,11 +1224,24 @@ body {
 .modal-body p { font-size: 14px; color: var(--text-secondary); line-height: 1.6; }
 .modal-footer { padding: 16px 24px; background: rgba(0,0,0,0.2); display: flex; justify-content: flex-end; gap: 12px; }
 
-#app-frame {
+#frames-container {
   flex: 1;
   width: 100%;
   height: 100%;
+  position: relative;
+}
+
+.app-frame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   background: #fff;
+  border: none;
+}
+.app-frame.hidden {
+  display: none;
 }
 
 /* ── Responsive ── */

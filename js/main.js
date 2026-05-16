@@ -48,7 +48,8 @@
   const popupTerminateBtn= document.getElementById('popup-terminate-btn');
   const toastContainer = document.getElementById('toast-container');
   const appShell       = document.getElementById('app-shell');
-  const appFrame       = document.getElementById('app-frame');
+  const framesContainer = document.getElementById('frames-container');
+  const iframes        = new Map(); // repoName -> HTMLIFrameElement
   const shellTab           = document.getElementById('shell-tab');
   const shellControls      = document.getElementById('shell-controls');
   const shellBackgroundBtn = document.getElementById('shell-background-btn');
@@ -336,6 +337,31 @@
 
   popupClose.addEventListener('click', hideNodePopup);
   
+  function getIframe(appEntry) {
+    const repo = appEntry.repoName;
+    if (iframes.has(repo)) {
+      return iframes.get(repo);
+    }
+    const frame = document.createElement('iframe');
+    frame.className = 'app-frame hidden';
+    frame.setAttribute('frameborder', '0');
+    frame.setAttribute('allow', 'autoplay; fullscreen; geolocation; microphone; camera; midi; encrypted-media; gyroscope; accelerometer;');
+    frame.src = appEntry.pagesUrl;
+    framesContainer.appendChild(frame);
+    iframes.set(repo, frame);
+    return frame;
+  }
+
+  function activateIframe(appEntry) {
+    iframes.forEach((frame, repo) => {
+      if (repo === appEntry.repoName) {
+        frame.classList.remove('hidden');
+      } else {
+        frame.classList.add('hidden');
+      }
+    });
+  }
+
   function openApp(appEntry) {
     if (!appEntry) return;
     currentShellApp = appEntry;
@@ -346,15 +372,8 @@
       shellHideTimeout = null;
     }
 
-    // Ensure the iframe has the correct URL.
-    // Use trailing slash normalization for more robust comparison
-    const targetUrl = appEntry.pagesUrl;
-    const currentUrl = appFrame.src.replace(/\/$/, '');
-    const normalizedTarget = targetUrl.replace(/\/$/, '');
-
-    if (currentUrl !== normalizedTarget) {
-      appFrame.src = targetUrl;
-    }
+    getIframe(appEntry);
+    activateIframe(appEntry);
 
     appShell.removeAttribute('hidden');
     appShell.classList.remove('app-shell--hiding');
@@ -377,7 +396,12 @@
     const repo = activePopupApp.repoName;
     backgroundApps.delete(repo);
     sphere?.setNodeBackground(repo, false);
-    appFrame.src = 'about:blank';
+    
+    if (iframes.has(repo)) {
+      iframes.get(repo).remove();
+      iframes.delete(repo);
+    }
+    
     currentShellApp = null;
     hideNodePopup();
     showToast(`${repo} closed.`, 'info');
@@ -422,7 +446,12 @@
     shellHideTimeout = setTimeout(() => {
       appShell.setAttribute('hidden', '');
       appShell.classList.remove('app-shell--hiding');
-      appFrame.src = 'about:blank';
+      
+      if (iframes.has(repo)) {
+        iframes.get(repo).remove();
+        iframes.delete(repo);
+      }
+      
       currentShellApp = null;
       shellHideTimeout = null;
     }, 400);
@@ -505,19 +534,30 @@
 
   // ─── Communication Bridge ──────────────────────────────────────────────────
   window.addEventListener('message', async (event) => {
-    if (!currentShellApp || !event.data || typeof event.data !== 'object') return;
+    if (!event.data || typeof event.data !== 'object') return;
     const { type, payload } = event.data;
 
+    let sourceRepo = null;
+    for (const [repo, frame] of iframes.entries()) {
+      if (frame.contentWindow === event.source) {
+        sourceRepo = repo;
+        break;
+      }
+    }
+    
+    if (!sourceRepo) return; // Ignore messages not from our apps
+
     if (type === 'PANOPTICON_SYNC') {
-      await Store.setAppState(currentShellApp.repoName, payload);
-      showToast(`${currentShellApp.repoName} state synced!`, 'success');
+      await Store.setAppState(sourceRepo, payload);
+      showToast(`${sourceRepo} state synced!`, 'success');
       if (window.Auth) window.Auth.syncAll();
     }
     
     if (type === 'PANOPTICON_READY') {
-      const state = await Store.getAppState(currentShellApp.repoName);
-      if (state) {
-        appFrame.contentWindow.postMessage({ type: 'PANOPTICON_LOAD', payload: state }, '*');
+      const state = await Store.getAppState(sourceRepo);
+      if (state && iframes.has(sourceRepo)) {
+        const frame = iframes.get(sourceRepo);
+        frame.contentWindow.postMessage({ type: 'PANOPTICON_LOAD', payload: state }, '*');
       }
     }
   });
