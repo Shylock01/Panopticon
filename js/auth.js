@@ -112,8 +112,11 @@
               const localStyles = await Store.getStyles();
               // Only pull if local has accountSync enabled or is new
               if (!localStyles || localStyles.accountSync !== false) {
-                await Store.saveStyles(data.stylesConfig);
-                needsReinit = true;
+                // Prevent infinite reload loop by verifying styles actually changed
+                if (!localStyles || JSON.stringify(localStyles) !== JSON.stringify(data.stylesConfig)) {
+                  await Store.saveStyles(data.stylesConfig);
+                  needsReinit = true;
+                }
               }
             }
 
@@ -164,6 +167,8 @@
       
       if (styles && styles.accountSync !== false) {
         payload.stylesConfig = styles;
+      } else {
+        payload.stylesConfig = firebase.firestore.FieldValue.delete();
       }
 
       await userRef.set(payload, { merge: true });

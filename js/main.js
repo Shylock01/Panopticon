@@ -302,8 +302,10 @@
         accountSync: styleAccountSync.checked
       };
       await Store.saveStyles(config);
-      // If sync is enabled, push to cloud
-      if (config.accountSync && window.Auth && window.Auth.syncAll) {
+      
+      // Always call syncAll to ensure the cloud state reflects the toggle
+      // (Auth.js handles removing styles from the payload if sync is disabled)
+      if (window.Auth && window.Auth.syncAll) {
         window.Auth.syncAll();
       }
     }, 1000);
