@@ -128,6 +128,16 @@
       hideTokenScreen();
       await initSphere();
     }
+    try {
+      const manifestRes = await fetch('./manifest.json');
+      const manifest = await manifestRes.json();
+      const versionLabel = document.querySelector('.version-label');
+      if (versionLabel && manifest.version) {
+        versionLabel.textContent = `v${manifest.version}`;
+      }
+    } catch (e) {
+      console.error('Failed to load version:', e);
+    }
   }
 
   async function initStyles() {
