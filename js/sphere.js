@@ -127,7 +127,8 @@ class PanopticonSphere {
     this.scene.add(this.camera);
 
     // Soft ambient base — reduced for better icon legibility
-    this.scene.add(new THREE.AmbientLight(0x2a2d3a, 1.2));
+    this._ambientLight = new THREE.AmbientLight(0x2a2d3a, 1.2);
+    this.scene.add(this._ambientLight);
 
     // Key light: soft, slightly above-left in camera space
     const keyLight = new THREE.DirectionalLight(0xc8d4f0, 0.9);
@@ -135,9 +136,9 @@ class PanopticonSphere {
     this.camera.add(keyLight);
 
     // Fill light: low intensity from below-right to soften shadows
-    const fillLight = new THREE.DirectionalLight(0x7080aa, 0.3);
-    fillLight.position.set(4, -3, 2);
-    this.camera.add(fillLight);
+    this._fillLight = new THREE.DirectionalLight(0x7080aa, 0.3);
+    this._fillLight.position.set(4, -3, 2);
+    this.camera.add(this._fillLight);
 
     // Back glow: world-space, feeds the eclipse halo behind the sphere
     this._backLight = new THREE.PointLight(0x3a6fff, 20, 40);
@@ -198,19 +199,20 @@ class PanopticonSphere {
     c1.width = c1.height = 512;
     const x1 = c1.getContext('2d');
     const g1 = x1.createRadialGradient(256, 256, 30, 256, 256, 256);
-    g1.addColorStop(0,    'rgba(80,150,255,0.9)');
-    g1.addColorStop(0.18, 'rgba(60,110,240,0.55)');
-    g1.addColorStop(0.42, 'rgba(30,70,190,0.22)');
-    g1.addColorStop(0.70, 'rgba(10,30,120,0.08)');
-    g1.addColorStop(1,    'rgba(0,0,0,0)');
+    g1.addColorStop(0,    'rgba(255,255,255,0.9)');
+    g1.addColorStop(0.18, 'rgba(255,255,255,0.55)');
+    g1.addColorStop(0.42, 'rgba(255,255,255,0.22)');
+    g1.addColorStop(0.70, 'rgba(255,255,255,0.08)');
+    g1.addColorStop(1,    'rgba(255,255,255,0)');
     x1.fillStyle = g1; x1.fillRect(0, 0, 512, 512);
 
     this._haloMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(21.6, 21.6),
       new THREE.MeshBasicMaterial({
         map: new THREE.CanvasTexture(c1),
+        color: this._accentColor.clone(),
         transparent: true, depthWrite: false,
-        blending: THREE.AdditiveBlending,
+        blending: THREE.NormalBlending,
       })
     );
     this.scene.add(this._haloMesh);
@@ -219,19 +221,20 @@ class PanopticonSphere {
     c2.width = c2.height = 512;
     const x2 = c2.getContext('2d');
     const g2 = x2.createRadialGradient(256, 256, 80, 256, 256, 256);
-    g2.addColorStop(0,    'rgba(0,0,0,0)');
-    g2.addColorStop(0.60, 'rgba(40,100,255,0.0)');
-    g2.addColorStop(0.72, 'rgba(80,160,255,0.45)');
-    g2.addColorStop(0.84, 'rgba(120,180,255,0.15)');
-    g2.addColorStop(1,    'rgba(0,0,0,0)');
+    g2.addColorStop(0,    'rgba(255,255,255,0)');
+    g2.addColorStop(0.60, 'rgba(255,255,255,0.0)');
+    g2.addColorStop(0.72, 'rgba(255,255,255,0.45)');
+    g2.addColorStop(0.84, 'rgba(255,255,255,0.15)');
+    g2.addColorStop(1,    'rgba(255,255,255,0)');
     x2.fillStyle = g2; x2.fillRect(0, 0, 512, 512);
 
     this._coronaMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(11.6, 11.6),
       new THREE.MeshBasicMaterial({
         map: new THREE.CanvasTexture(c2),
+        color: this._accentColor.clone(),
         transparent: true, depthWrite: false,
-        blending: THREE.AdditiveBlending,
+        blending: THREE.NormalBlending,
       })
     );
     this.scene.add(this._coronaMesh);
@@ -242,9 +245,9 @@ class PanopticonSphere {
     c.width = c.height = 128;
     const ctx = c.getContext('2d');
     const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
-    g.addColorStop(0,   'rgba(80,150,255,0.7)');
-    g.addColorStop(0.4, 'rgba(60,120,255,0.3)');
-    g.addColorStop(1,   'rgba(0,0,0,0)');
+    g.addColorStop(0,   'rgba(255,255,255,0.7)');
+    g.addColorStop(0.4, 'rgba(255,255,255,0.3)');
+    g.addColorStop(1,   'rgba(255,255,255,0)');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, 128, 128);
     this._glowTex = new THREE.CanvasTexture(c);
@@ -283,7 +286,7 @@ class PanopticonSphere {
       uniforms: this._pulseUniforms,
       transparent: true,
       depthWrite: false,
-      blending: THREE.AdditiveBlending,
+      blending: THREE.NormalBlending,
       vertexShader: `
         varying vec3 vPos;
         void main() {
@@ -331,7 +334,7 @@ class PanopticonSphere {
   _addInnerGlow() {
     const mat = new THREE.MeshBasicMaterial({
       color: this._accentColor.clone().multiplyScalar(0.2), transparent: true, opacity: 0.06,
-      blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.BackSide,
+      blending: THREE.NormalBlending, depthWrite: false, side: THREE.BackSide,
     });
     this._innerGlowMesh = new THREE.Mesh(new THREE.IcosahedronGeometry(SPHERE_RADIUS * 0.96, 2), mat);
     this.group.add(this._innerGlowMesh);
@@ -423,7 +426,7 @@ class PanopticonSphere {
       color: this._accentColor.clone(),
       transparent: true,
       opacity: 0,
-      blending: THREE.AdditiveBlending,
+      blending: THREE.NormalBlending,
       depthWrite: false
     });
     const glow = new THREE.Sprite(glowMat);
@@ -796,28 +799,65 @@ class PanopticonSphere {
     const color = new THREE.Color(hex);
     this._accentColor.copy(color);
     
+    const isLightMode = document.documentElement.getAttribute('data-theme') === 'white';
+
+    // Update global lights for shadow color
+    if (this._ambientLight) {
+      this._ambientLight.color.setHex(isLightMode ? 0x5a6a8a : 0x2a2d3a);
+      this._ambientLight.intensity = isLightMode ? 1.2 : 1.2;
+    }
+    if (this._fillLight) {
+      this._fillLight.color.setHex(isLightMode ? 0x7080aa : 0x7080aa);
+      this._fillLight.intensity = isLightMode ? 0.4 : 0.3;
+    }
+
     // 1. Backlight
-    if (this._backLight) this._backLight.color.copy(color);
+    if (this._backLight) {
+      if (isLightMode) {
+        // Brighten the backlight slightly in light mode
+        const backColor = color.clone();
+        backColor.lerp(new THREE.Color(0xffffff), 0.3);
+        this._backLight.color.copy(backColor);
+      } else {
+        this._backLight.color.copy(color);
+      }
+    }
     
     // 2. Pulse shell
     if (this._pulseUniforms) this._pulseUniforms.uColor.value.copy(color);
     
-    // 3. Sphere base color (dark version)
+    // 3. Sphere base color
     if (this._sphereMesh) {
-      this._sphereMesh.material.color.copy(color).multiplyScalar(0.12);
+      if (isLightMode) {
+        this._sphereMesh.material.color.set(0xffffff);
+      } else {
+        this._sphereMesh.material.color.copy(color).multiplyScalar(0.12);
+      }
     }
     
-    // 4. Edges (mid-brightness)
+    // 4. Edges
     if (this._edgeLines) {
-      this._edgeLines.material.color.copy(color).multiplyScalar(0.8);
+      if (isLightMode) {
+        this._edgeLines.material.color.copy(color);
+      } else {
+        this._edgeLines.material.color.copy(color).multiplyScalar(0.8);
+      }
     }
 
-    // 5. Inner glow (very dark version)
+    // 5. Inner glow
     if (this._innerGlowMesh) {
-       this._innerGlowMesh.material.color.copy(color).multiplyScalar(0.2);
+      if (isLightMode) {
+        this._innerGlowMesh.material.color.set(0xffffff);
+      } else {
+        this._innerGlowMesh.material.color.copy(color).multiplyScalar(0.2);
+      }
     }
 
-    // 6. Existing node glows
+    // 6. Halo and Corona
+    if (this._haloMesh) this._haloMesh.material.color.copy(color);
+    if (this._coronaMesh) this._coronaMesh.material.color.copy(color);
+
+    // 7. Existing node glows
     this.nodes.forEach(entry => {
       if (!entry.isBackground) {
         entry.glowMat.color.copy(color);

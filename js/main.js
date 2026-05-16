@@ -6,66 +6,65 @@
 (function () {
 
   // ─── State ──────────────────────────────────────────────────────────────
-  let sphere        = null;
-  let cachedRepos   = [];
+  let sphere = null;
+  let cachedRepos = [];
   let activePopupApp = null;
   let currentShellApp = null;
   let shellHideTimeout = null;
 
   // ─── DOM refs ────────────────────────────────────────────────────────────
-  const canvas         = document.getElementById('sphere-canvas');
-  const tokenScreen    = document.getElementById('token-screen');
-  const tokenInput     = document.getElementById('token-input');
-  const tokenSaveBtn   = document.getElementById('token-save-btn');
-  const tokenToggle    = document.getElementById('token-toggle');
-  const tokenCloseBtn  = document.getElementById('token-close-btn');
-  const settingsBtn    = document.getElementById('settings-btn');
-  const addAppBtn      = document.getElementById('add-app-btn');
-  const repoDrawer     = document.getElementById('repo-drawer');
+  const canvas = document.getElementById('sphere-canvas');
+  const tokenScreen = document.getElementById('token-screen');
+  const tokenInput = document.getElementById('token-input');
+  const tokenSaveBtn = document.getElementById('token-save-btn');
+  const tokenToggle = document.getElementById('token-toggle');
+  const tokenCloseBtn = document.getElementById('token-close-btn');
+  const settingsBtn = document.getElementById('settings-btn');
+  const addAppBtn = document.getElementById('add-app-btn');
+  const repoDrawer = document.getElementById('repo-drawer');
   const drawerBackdrop = document.getElementById('drawer-backdrop');
   const drawerCloseBtn = document.getElementById('drawer-close-btn');
-  const repoSearch     = document.getElementById('repo-search');
-  const repoList       = document.getElementById('repo-list');
-  const repoLoading    = document.getElementById('repo-loading');
-  const repoEmpty      = document.getElementById('repo-empty');
-  const nodePopup      = document.getElementById('node-popup');
-  const popupIcon      = document.getElementById('popup-icon');
-  const popupName      = document.getElementById('popup-app-name');
-  const popupDesc      = document.getElementById('popup-app-desc');
-  const popupLaunch    = document.getElementById('popup-launch-btn');
-  const popupUnlink    = document.getElementById('popup-unlink-btn');
-  const popupClose     = document.getElementById('popup-close-btn');
-  const popupRefreshBtn= document.getElementById('popup-refresh-btn');
+  const repoSearch = document.getElementById('repo-search');
+  const repoList = document.getElementById('repo-list');
+  const repoLoading = document.getElementById('repo-loading');
+  const repoEmpty = document.getElementById('repo-empty');
+  const nodePopup = document.getElementById('node-popup');
+  const popupIcon = document.getElementById('popup-icon');
+  const popupName = document.getElementById('popup-app-name');
+  const popupDesc = document.getElementById('popup-app-desc');
+  const popupLaunch = document.getElementById('popup-launch-btn');
+  const popupUnlink = document.getElementById('popup-unlink-btn');
+  const popupClose = document.getElementById('popup-close-btn');
+  const popupRefreshBtn = document.getElementById('popup-refresh-btn');
   const popupEditTrigger = document.getElementById('popup-edit-trigger');
   const popupEditActions = document.getElementById('popup-edit-actions');
-  const popupDescView    = document.getElementById('popup-desc-view');
-  const popupDescEditWrap= document.getElementById('popup-desc-edit-wrap');
-  const popupSaveBtn     = document.getElementById('popup-save-btn');
-  const popupDescEdit    = document.getElementById('popup-app-desc-edit');
+  const popupDescView = document.getElementById('popup-desc-view');
+  const popupDescEditWrap = document.getElementById('popup-desc-edit-wrap');
+  const popupSaveBtn = document.getElementById('popup-save-btn');
+  const popupDescEdit = document.getElementById('popup-app-desc-edit');
   const popupIconEditBtn = document.getElementById('popup-icon-edit-btn');
-  const popupIconInput   = document.getElementById('popup-icon-input');
-  const popupBgMgmt      = document.getElementById('popup-bg-mgmt');
-  const popupResumeBtn   = document.getElementById('popup-resume-btn');
-  const popupTerminateBtn= document.getElementById('popup-terminate-btn');
+  const popupIconInput = document.getElementById('popup-icon-input');
+  const popupBgMgmt = document.getElementById('popup-bg-mgmt');
+  const popupResumeBtn = document.getElementById('popup-resume-btn');
+  const popupTerminateBtn = document.getElementById('popup-terminate-btn');
   const toastContainer = document.getElementById('toast-container');
-  const appShell       = document.getElementById('app-shell');
+  const appShell = document.getElementById('app-shell');
   const framesContainer = document.getElementById('frames-container');
-  const iframes        = new Map(); // repoName -> HTMLIFrameElement
-  const shellTab           = document.getElementById('shell-tab');
-  const shellControls      = document.getElementById('shell-controls');
+  const iframes = new Map(); // repoName -> HTMLIFrameElement
+  const shellTab = document.getElementById('shell-tab');
+  const shellControls = document.getElementById('shell-controls');
   const shellBackgroundBtn = document.getElementById('shell-background-btn');
-  const shellCloseBtn      = document.getElementById('shell-close-btn');
-  const appResetBtn    = document.getElementById('app-reset-btn');
-  const settingsBadge  = document.getElementById('settings-badge');
-  const badgeTabLink   = document.getElementById('badge-tab-link');
-  const badgeTabLogin  = document.getElementById('badge-tab-login');
+  const shellCloseBtn = document.getElementById('shell-close-btn');
+  const appResetBtn = document.getElementById('app-reset-btn');
+  const settingsBadge = document.getElementById('settings-badge');
+  const badgeTabLink = document.getElementById('badge-tab-link');
+  const badgeTabLogin = document.getElementById('badge-tab-login');
   const badgeTabSystem = document.getElementById('badge-tab-system');
-  const styleColorBg      = document.getElementById('style-color-bg');
-  const styleColorAccent  = document.getElementById('style-color-accent');
-  const styleIconScale    = document.getElementById('style-icon-scale');
+  const styleThemeInputs = document.querySelectorAll('.theme-swatch-input');
+  const styleIconScale = document.getElementById('style-icon-scale');
   const styleIconScaleVal = document.getElementById('style-icon-scale-val');
-  const styleAccountSync  = document.getElementById('style-account-sync');
-  const styleResetBtn     = document.getElementById('style-reset-btn');
+  const styleAccountSync = document.getElementById('style-account-sync');
+  const styleResetBtn = document.getElementById('style-reset-btn');
 
   const backgroundApps = new Set(); // repoNames
 
@@ -74,23 +73,23 @@
     btn.addEventListener('click', () => {
       document.querySelectorAll('.settings-nav-item').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      
+
       const targetId = btn.dataset.tab;
       document.querySelectorAll('.settings-tab-panel').forEach(p => p.classList.remove('active'));
       document.getElementById(targetId).classList.add('active');
 
       // Clear badges for the visited tab
       if (targetId === 'settings-tab-connect') badgeTabLink.setAttribute('hidden', '');
-      if (targetId === 'settings-tab-cloud')   badgeTabLogin.setAttribute('hidden', '');
-      if (targetId === 'settings-tab-system')  badgeTabSystem.setAttribute('hidden', '');
+      if (targetId === 'settings-tab-cloud') badgeTabLogin.setAttribute('hidden', '');
+      if (targetId === 'settings-tab-system') badgeTabSystem.setAttribute('hidden', '');
       checkGlobalBadge();
     });
   });
 
   function checkGlobalBadge() {
-    const anyTabBadge = !badgeTabLink.hasAttribute('hidden') || 
-                        !badgeTabLogin.hasAttribute('hidden') || 
-                        !badgeTabSystem.hasAttribute('hidden');
+    const anyTabBadge = !badgeTabLink.hasAttribute('hidden') ||
+      !badgeTabLogin.hasAttribute('hidden') ||
+      !badgeTabSystem.hasAttribute('hidden');
     if (!anyTabBadge) settingsBadge.setAttribute('hidden', '');
   }
 
@@ -98,8 +97,8 @@
   function setTabBadge(tabId, visible) {
     let badge;
     if (tabId === 'settings-tab-connect') badge = badgeTabLink;
-    if (tabId === 'settings-tab-cloud')   badge = badgeTabLogin;
-    if (tabId === 'settings-tab-system')  badge = badgeTabSystem;
+    if (tabId === 'settings-tab-cloud') badge = badgeTabLogin;
+    if (tabId === 'settings-tab-system') badge = badgeTabSystem;
 
     if (!badge) return;
 
@@ -134,15 +133,17 @@
   async function initStyles() {
     const config = await Store.getStyles();
     if (config) {
-      if (config.colors) {
-        if (config.colors.bg) {
-          styleColorBg.value = config.colors.bg;
-          document.documentElement.style.setProperty('--bg', config.colors.bg);
-        }
-        if (config.colors.accent) {
-          styleColorAccent.value = config.colors.accent;
-          document.documentElement.style.setProperty('--accent', config.colors.accent);
-        }
+      if (config.theme) {
+        document.documentElement.setAttribute('data-theme', config.theme);
+        document.documentElement.style.removeProperty('--bg');
+        document.documentElement.style.removeProperty('--accent');
+        styleThemeInputs.forEach(input => {
+          input.checked = (input.value === config.theme);
+        });
+      } else if (config.colors) {
+        document.documentElement.setAttribute('data-theme', 'blue');
+        document.documentElement.style.removeProperty('--bg');
+        document.documentElement.style.removeProperty('--accent');
       }
       if (config.iconScale !== undefined) {
         styleIconScale.value = config.iconScale;
@@ -160,12 +161,14 @@
       if (sphere) sphere.destroy();
       const zoom = await Store.getZoom();
       sphere = new PanopticonSphere(canvas, showNodePopup, zoom);
-      
-      // Apply saved accent color if any
-      const styles = await Store.getStyles();
-      if (styles && styles.colors && styles.colors.accent) {
-        sphere.updateAccentColor(styles.colors.accent);
-      }
+
+      // Apply theme's accent color
+      requestAnimationFrame(() => {
+        const computedAccent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+        if (computedAccent) {
+          sphere.updateAccentColor(computedAccent);
+        }
+      });
 
       const apps = await Store.getLinkedApps();
       apps.forEach(app => sphere.addNode(app));
@@ -237,16 +240,21 @@
   });
 
   // ─── Style Tab Events ─────────────────────────────────────────────────────
-  styleColorBg.addEventListener('input', (e) => {
-    document.documentElement.style.setProperty('--bg', e.target.value);
-    autoSaveStyles();
-  });
-  styleColorAccent.addEventListener('input', (e) => {
-    document.documentElement.style.setProperty('--accent', e.target.value);
-    if (sphere && sphere.updateAccentColor) {
-      sphere.updateAccentColor(e.target.value);
-    }
-    autoSaveStyles();
+  styleThemeInputs.forEach(input => {
+    input.addEventListener('change', (e) => {
+      if (e.target.checked) {
+        document.documentElement.setAttribute('data-theme', e.target.value);
+        document.documentElement.style.removeProperty('--bg');
+        document.documentElement.style.removeProperty('--accent');
+        if (sphere && sphere.updateAccentColor) {
+          requestAnimationFrame(() => {
+            const computedAccent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+            sphere.updateAccentColor(computedAccent);
+          });
+        }
+        autoSaveStyles();
+      }
+    });
   });
   styleIconScale.addEventListener('input', (e) => {
     const val = parseFloat(e.target.value);
@@ -259,21 +267,24 @@
   });
 
   styleResetBtn.addEventListener('click', () => {
-    const defBg = '#020209';
-    const defAccent = '#4f8ef7';
+    const defTheme = 'blue';
     const defScale = 1.0;
 
-    styleColorBg.value = defBg;
-    styleColorAccent.value = defAccent;
+    document.documentElement.setAttribute('data-theme', defTheme);
+    document.documentElement.style.removeProperty('--bg');
+    document.documentElement.style.removeProperty('--accent');
+    styleThemeInputs.forEach(input => input.checked = (input.value === defTheme));
+    
     styleIconScale.value = defScale;
     styleIconScaleVal.textContent = '1.0';
-    
-    document.documentElement.style.setProperty('--bg', defBg);
-    document.documentElement.style.setProperty('--accent', defAccent);
+
     window.GlobalIconScale = defScale;
 
     if (sphere && sphere.updateAccentColor) {
-      sphere.updateAccentColor(defAccent);
+      requestAnimationFrame(() => {
+        const computedAccent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#4f8ef7';
+        sphere.updateAccentColor(computedAccent);
+      });
     }
 
     autoSaveStyles();
@@ -284,11 +295,9 @@
   function autoSaveStyles() {
     clearTimeout(styleSaveTimeout);
     styleSaveTimeout = setTimeout(async () => {
+      const selectedThemeInput = document.querySelector('.theme-swatch-input:checked');
       const config = {
-        colors: {
-          bg: styleColorBg.value,
-          accent: styleColorAccent.value
-        },
+        theme: selectedThemeInput ? selectedThemeInput.value : 'blue',
         iconScale: parseFloat(styleIconScale.value),
         accountSync: styleAccountSync.checked
       };
@@ -383,11 +392,11 @@
 
     const { dataUrl, color } = GH.generateLetterIcon(repo.repoName);
     const entry = {
-      repoName:    repo.repoName,
-      pagesUrl:    repo.pagesUrl,
+      repoName: repo.repoName,
+      pagesUrl: repo.pagesUrl,
       description: repo.description,
       iconDataUrl: dataUrl,
-      iconColor:   color,
+      iconColor: color,
     };
 
     let manifestIconUrl = null;
@@ -413,7 +422,7 @@
         sphere?.updateNodeIcon(repo.repoName, favUrl);
         if (window.Auth) window.Auth.syncAll();
       }
-    }).catch(() => {});
+    }).catch(() => { });
   }
 
   repoSearch.addEventListener('input', () => renderRepoList(cachedRepos));
@@ -421,11 +430,11 @@
   // ─── Node popup ───────────────────────────────────────────────────────────
   async function showNodePopup(appEntry) {
     activePopupApp = appEntry;
-    popupIcon.src              = appEntry.iconDataUrl;
-    popupIcon.alt              = appEntry.repoName;
-    popupName.textContent      = appEntry.repoName;
-    popupDesc.textContent      = appEntry.description || 'No description provided.';
-    popupLaunch.href           = appEntry.pagesUrl;
+    popupIcon.src = appEntry.iconDataUrl;
+    popupIcon.alt = appEntry.repoName;
+    popupName.textContent = appEntry.repoName;
+    popupDesc.textContent = appEntry.description || 'No description provided.';
+    popupLaunch.href = appEntry.pagesUrl;
     popupUnlink.classList.remove('btn-danger-confirm');
 
     exitEditMode();
@@ -456,7 +465,7 @@
   }
 
   popupClose.addEventListener('click', hideNodePopup);
-  
+
   function getIframe(appEntry) {
     const repo = appEntry.repoName;
     if (iframes.has(repo)) {
@@ -516,12 +525,12 @@
     const repo = activePopupApp.repoName;
     backgroundApps.delete(repo);
     sphere?.setNodeBackground(repo, false);
-    
+
     if (iframes.has(repo)) {
       iframes.get(repo).remove();
       iframes.delete(repo);
     }
-    
+
     currentShellApp = null;
     hideNodePopup();
     showToast(`${repo} closed.`, 'info');
@@ -544,7 +553,7 @@
     backgroundApps.add(repo);
     sphere?.setNodeBackground(repo, true);
     if (shellHideTimeout) clearTimeout(shellHideTimeout);
-    
+
     appShell.classList.add('app-shell--hiding');
     shellHideTimeout = setTimeout(() => {
       appShell.setAttribute('hidden', '');
@@ -566,12 +575,12 @@
     shellHideTimeout = setTimeout(() => {
       appShell.setAttribute('hidden', '');
       appShell.classList.remove('app-shell--hiding');
-      
+
       if (iframes.has(repo)) {
         iframes.get(repo).remove();
         iframes.delete(repo);
       }
-      
+
       currentShellApp = null;
       shellHideTimeout = null;
     }, 400);
@@ -581,12 +590,12 @@
   popupUnlink.addEventListener('click', async () => {
     if (popupUnlink.dataset.state === 'idle') {
       popupUnlink.dataset.state = 'confirm';
-      popupUnlink.textContent   = 'Confirm Unlink?';
+      popupUnlink.textContent = 'Confirm Unlink?';
       popupUnlink.classList.add('btn-danger-confirm');
       setTimeout(() => {
         if (popupUnlink.dataset.state === 'confirm') {
           popupUnlink.dataset.state = 'idle';
-          popupUnlink.textContent   = 'Unlink';
+          popupUnlink.textContent = 'Unlink';
           popupUnlink.classList.remove('btn-danger-confirm');
         }
       }, 4000);
@@ -698,7 +707,7 @@
         break;
       }
     }
-    
+
     if (!sourceRepo) return; // Ignore messages not from our apps
 
     if (type === 'PANOPTICON_SYNC') {
@@ -706,7 +715,7 @@
       showToast(`${sourceRepo} state synced!`, 'success');
       if (window.Auth) window.Auth.syncAll();
     }
-    
+
     if (type === 'PANOPTICON_READY') {
       const state = await Store.getAppState(sourceRepo);
       if (state && iframes.has(sourceRepo)) {
@@ -768,7 +777,7 @@
     setupUI() {
       const toastBtn = document.getElementById('update-toast-btn');
       const checkBtn = document.getElementById('check-update-btn');
-      const nowBtn   = document.getElementById('update-now-btn');
+      const nowBtn = document.getElementById('update-now-btn');
       const cancelBtn = document.getElementById('update-cancel-btn');
       const confirmBtn = document.getElementById('update-confirm-btn');
       const modal = document.getElementById('update-modal');
@@ -790,7 +799,7 @@
 
       toastBtn?.addEventListener('click', triggerPrompt);
       nowBtn?.addEventListener('click', triggerPrompt);
-      
+
       checkBtn?.addEventListener('click', async () => {
         const btnText = checkBtn.textContent;
         checkBtn.textContent = 'Checking...';
@@ -857,7 +866,7 @@
   // ─── Toast ────────────────────────────────────────────────────────────────
   function showToast(message, type = 'info') {
     const toast = document.createElement('div');
-    toast.className   = `toast toast--${type}`;
+    toast.className = `toast toast--${type}`;
     toast.textContent = message;
     toastContainer.appendChild(toast);
     requestAnimationFrame(() => toast.classList.add('toast--show'));
