@@ -107,6 +107,16 @@
               }
             }
 
+            // 4. Sync Styles
+            if (data.stylesConfig) {
+              const localStyles = await Store.getStyles();
+              // Only pull if local has accountSync enabled or is new
+              if (!localStyles || localStyles.accountSync !== false) {
+                await Store.saveStyles(data.stylesConfig);
+                needsReinit = true;
+              }
+            }
+
             if (needsReinit) {
                if (window.Main && window.Main.initSphere) {
                  await window.Main.initSphere();
@@ -143,12 +153,20 @@
       const apps = await Store.getLinkedApps();
       const token = Store.getToken();
       
-      // Sync list and token
-      await userRef.set({ 
+      const styles = await Store.getStyles();
+      
+      // Sync list, token, and styles (if accountSync is enabled)
+      const payload = { 
         ghToken: token,
         linkedApps: apps,
         lastSync: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
+      };
+      
+      if (styles && styles.accountSync !== false) {
+        payload.stylesConfig = styles;
+      }
+
+      await userRef.set(payload, { merge: true });
 
       // Sync individual app states
       for (const app of apps) {

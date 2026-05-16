@@ -144,11 +144,21 @@ window.Store = (() => {
     await set('zoom_state', zoom);
   }
 
+  // --- Style Persistence ----------------------------------------------------
+  async function getStyles() {
+    return (await get('styles_config')) || null;
+  }
+
+  async function saveStyles(styles) {
+    await set('styles_config', styles);
+  }
+
   return { 
     getToken, saveToken, clearToken, 
     getLinkedApps, isLinked, linkApp, unlinkApp, 
     updateAppIcon, updateAppDescription,
     getAppState, setAppState,
-    getZoom, saveZoom 
+    getZoom, saveZoom,
+    getStyles, saveStyles
   };
 })();

@@ -60,6 +60,12 @@
   const badgeTabLink   = document.getElementById('badge-tab-link');
   const badgeTabLogin  = document.getElementById('badge-tab-login');
   const badgeTabSystem = document.getElementById('badge-tab-system');
+  const styleColorBg      = document.getElementById('style-color-bg');
+  const styleColorAccent  = document.getElementById('style-color-accent');
+  const styleIconScale    = document.getElementById('style-icon-scale');
+  const styleIconScaleVal = document.getElementById('style-icon-scale-val');
+  const styleAccountSync  = document.getElementById('style-account-sync');
+  const styleResetBtn     = document.getElementById('style-reset-btn');
 
   const backgroundApps = new Set(); // repoNames
 
@@ -114,6 +120,7 @@
 
   // ─── Bootstrap ───────────────────────────────────────────────────────────
   async function boot() {
+    await initStyles();
     const token = Store.getToken();
     if (!token) {
       showTokenScreen();
@@ -124,11 +131,42 @@
     }
   }
 
+  async function initStyles() {
+    const config = await Store.getStyles();
+    if (config) {
+      if (config.colors) {
+        if (config.colors.bg) {
+          styleColorBg.value = config.colors.bg;
+          document.documentElement.style.setProperty('--bg', config.colors.bg);
+        }
+        if (config.colors.accent) {
+          styleColorAccent.value = config.colors.accent;
+          document.documentElement.style.setProperty('--accent', config.colors.accent);
+        }
+      }
+      if (config.iconScale !== undefined) {
+        styleIconScale.value = config.iconScale;
+        styleIconScaleVal.textContent = parseFloat(config.iconScale).toFixed(1);
+        window.GlobalIconScale = parseFloat(config.iconScale);
+      }
+      if (config.accountSync !== undefined) {
+        styleAccountSync.checked = config.accountSync;
+      }
+    }
+  }
+
   async function initSphere() {
     try {
       if (sphere) sphere.destroy();
       const zoom = await Store.getZoom();
       sphere = new PanopticonSphere(canvas, showNodePopup, zoom);
+      
+      // Apply saved accent color if any
+      const styles = await Store.getStyles();
+      if (styles && styles.colors && styles.colors.accent) {
+        sphere.updateAccentColor(styles.colors.accent);
+      }
+
       const apps = await Store.getLinkedApps();
       apps.forEach(app => sphere.addNode(app));
       // Start camera facing the most recently added app
@@ -197,6 +235,70 @@
     tokenInput.value = Store.getToken();
     showTokenScreen();
   });
+
+  // ─── Style Tab Events ─────────────────────────────────────────────────────
+  styleColorBg.addEventListener('input', (e) => {
+    document.documentElement.style.setProperty('--bg', e.target.value);
+    autoSaveStyles();
+  });
+  styleColorAccent.addEventListener('input', (e) => {
+    document.documentElement.style.setProperty('--accent', e.target.value);
+    if (sphere && sphere.updateAccentColor) {
+      sphere.updateAccentColor(e.target.value);
+    }
+    autoSaveStyles();
+  });
+  styleIconScale.addEventListener('input', (e) => {
+    const val = parseFloat(e.target.value);
+    styleIconScaleVal.textContent = val.toFixed(1);
+    window.GlobalIconScale = val;
+    autoSaveStyles();
+  });
+  styleAccountSync.addEventListener('change', () => {
+    autoSaveStyles();
+  });
+
+  styleResetBtn.addEventListener('click', () => {
+    const defBg = '#020209';
+    const defAccent = '#4f8ef7';
+    const defScale = 1.0;
+
+    styleColorBg.value = defBg;
+    styleColorAccent.value = defAccent;
+    styleIconScale.value = defScale;
+    styleIconScaleVal.textContent = '1.0';
+    
+    document.documentElement.style.setProperty('--bg', defBg);
+    document.documentElement.style.setProperty('--accent', defAccent);
+    window.GlobalIconScale = defScale;
+
+    if (sphere && sphere.updateAccentColor) {
+      sphere.updateAccentColor(defAccent);
+    }
+
+    autoSaveStyles();
+    showToast('Styles reset to defaults.', 'info');
+  });
+
+  let styleSaveTimeout = null;
+  function autoSaveStyles() {
+    clearTimeout(styleSaveTimeout);
+    styleSaveTimeout = setTimeout(async () => {
+      const config = {
+        colors: {
+          bg: styleColorBg.value,
+          accent: styleColorAccent.value
+        },
+        iconScale: parseFloat(styleIconScale.value),
+        accountSync: styleAccountSync.checked
+      };
+      await Store.saveStyles(config);
+      // If sync is enabled, push to cloud
+      if (config.accountSync && window.Auth && window.Auth.syncAll) {
+        window.Auth.syncAll();
+      }
+    }, 1000);
+  }
 
   // ─── Repo drawer ──────────────────────────────────────────────────────────
   addAppBtn.addEventListener('click', openDrawer);

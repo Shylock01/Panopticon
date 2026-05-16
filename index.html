@@ -195,6 +195,9 @@
         <button class="settings-nav-item" data-tab="settings-tab-cloud">
           Login <span id="badge-tab-login" class="tab-badge" hidden></span>
         </button>
+        <button class="settings-nav-item" data-tab="settings-tab-style">
+          Style <span id="badge-tab-style" class="tab-badge" hidden></span>
+        </button>
         <button class="settings-nav-item" data-tab="settings-tab-system">
           System <span id="badge-tab-system" class="tab-badge" hidden></span>
         </button>
@@ -257,13 +260,47 @@
         </div>
       </div>
 
+      <!-- Tab 3: Style -->
+      <div id="settings-tab-style" class="settings-tab-panel">
+        <div class="settings-section">
+          <div class="style-control-group">
+            <label for="style-color-bg">Background Color</label>
+            <input type="color" id="style-color-bg" value="#020209">
+          </div>
+          <div class="style-control-group">
+            <label for="style-color-accent">Accent Color</label>
+            <input type="color" id="style-color-accent" value="#4f8ef7">
+          </div>
+          <div class="style-control-group">
+            <label for="style-icon-scale">App Icon Size (<span id="style-icon-scale-val">1.0</span>x)</label>
+            <input type="range" id="style-icon-scale" min="0.5" max="2.0" step="0.1" value="1.0">
+          </div>
+          
+          <hr class="style-divider">
+          
+          <div class="style-toggle-group">
+            <div>
+              <strong>Account Sync</strong>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="style-account-sync" checked>
+              <span class="slider round"></span>
+            </label>
+          </div>
+          
+          <div style="margin-top: 24px;">
+            <button id="style-reset-btn" class="btn btn-outline btn-sm btn-full">Reset to Defaults</button>
+          </div>
+        </div>
+      </div>
+
       <!-- System / Update Tab -->
       <div id="settings-tab-system" class="settings-tab-panel">
         <div class="settings-section">
           <div class="system-status-card">
             <div class="system-status-item">
               <span class="status-label">Current Version</span>
-              <span class="status-value version-label">v1.2.0</span>
+              <span class="status-value version-label">v1.2.1</span>
             </div>
             <div class="system-status-item">
               <span class="status-label">Update Status</span>
@@ -271,7 +308,7 @@
             </div>
           </div>
           <div id="update-action-container" hidden>
-            <button id="update-now-btn" class="btn btn-success btn-full" style="margin-top: 12px;">Update to v1.2.0</button>
+            <button id="update-now-btn" class="btn btn-success btn-full" style="margin-top: 12px;">Update to v1.2.1</button>
           </div>
           <button id="check-update-btn" class="btn btn-outline btn-sm btn-full" style="margin-top: 12px;">Check for Updates</button>
           <button id="cloud-sync-btn" class="btn btn-outline btn-sm btn-full" style="margin-top: 8px;">Force Cloud Sync</button>
@@ -287,7 +324,7 @@
       <div class="update-toast-icon">🚀</div>
       <div class="update-toast-text">
         <strong>New Update Available</strong>
-        <span>Version v1.2.0 is ready to install.</span>
+        <span>Version v1.2.1 is ready to install.</span>
       </div>
       <button id="update-toast-btn" class="btn btn-primary btn-sm">Update</button>
     </div>

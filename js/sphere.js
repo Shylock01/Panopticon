@@ -18,6 +18,7 @@ const HOVER_SCALE   = 1.12;  // Subtle scale-up on hover
 const LERP_SPEED    = 0.14;  // Animation smoothness
 const PHI_MIN       = 0.15;   // Clamp away from poles (~8.6°)
 const PHI_MAX       = Math.PI - 0.15;
+window.GlobalIconScale = 1.0; // Dynamic scale controlled by Style settings
 
 // Fibonacci sphere positions, sorted equator-first.
 // First slots go to equatorial band; later slots approach poles.
@@ -78,6 +79,7 @@ class PanopticonSphere {
     this._targetRadius   = this._radius;
     this._defaultRadius  = this._radius;
     this._zoomLocked     = savedZoom ? savedZoom.locked : false;
+    this._accentColor    = new THREE.Color(0x4f8ef7);
     
     this._pinchDist      = 0;
     this._holdStartTime  = 0;
@@ -254,7 +256,7 @@ class PanopticonSphere {
     // Diffuse obsidian-like material: dark gray, matte, minimal metalness.
     // High roughness = spread, soft light response with no harsh reflections.
     const mat = new THREE.MeshStandardMaterial({
-      color:    0x1c1c24,   // very dark blue-gray (truer to obsidian than pure black)
+      color:    this._accentColor.clone().multiplyScalar(0.12),
       roughness: 0.82,      // mostly diffuse — soft, stone-like shading
       metalness: 0.04,      // nearly zero — avoids mirror-like highlights
     });
@@ -264,8 +266,9 @@ class PanopticonSphere {
 
   _addEdges() {
     const edges = new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(SPHERE_RADIUS + 0.004, DETAIL));
-    const mat   = new THREE.LineBasicMaterial({ color: 0x4a6eaa, transparent: true, opacity: 0.32 });
-    this.group.add(new THREE.LineSegments(edges, mat));
+    const mat   = new THREE.LineBasicMaterial({ color: this._accentColor.clone().multiplyScalar(0.8), transparent: true, opacity: 0.32 });
+    this._edgeLines = new THREE.LineSegments(edges, mat);
+    this.group.add(this._edgeLines);
   }
 
   _addPulseShell() {
@@ -273,7 +276,7 @@ class PanopticonSphere {
       uTime:   { value: 0 },
       uOrigin: { value: new THREE.Vector3(0, 1, 0) },
       uActive: { value: 0.0 },
-      uColor:  { value: new THREE.Color(0x50aaff) }
+      uColor:  { value: this._accentColor.clone() }
     };
 
     const mat = new THREE.ShaderMaterial({
@@ -327,10 +330,11 @@ class PanopticonSphere {
 
   _addInnerGlow() {
     const mat = new THREE.MeshBasicMaterial({
-      color: 0x1a2a50, transparent: true, opacity: 0.06,
+      color: this._accentColor.clone().multiplyScalar(0.2), transparent: true, opacity: 0.06,
       blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.BackSide,
     });
-    this.group.add(new THREE.Mesh(new THREE.IcosahedronGeometry(SPHERE_RADIUS * 0.96, 2), mat));
+    this._innerGlowMesh = new THREE.Mesh(new THREE.IcosahedronGeometry(SPHERE_RADIUS * 0.96, 2), mat);
+    this.group.add(this._innerGlowMesh);
   }
 
   // ── Nodes ─────────────────────────────────────────────────────────────────
@@ -416,7 +420,7 @@ class PanopticonSphere {
     // Outer glow sprite (hidden by default)
     const glowMat = new THREE.SpriteMaterial({
       map: this._glowTex,
-      color: 0x4f8ef7,
+      color: this._accentColor.clone(),
       transparent: true,
       opacity: 0,
       blending: THREE.AdditiveBlending,
@@ -744,7 +748,8 @@ class PanopticonSphere {
     this.nodes.forEach(entry => {
       // Lerp scale
       const curS = entry.nodeGroup.scale.x;
-      const nextS = curS + (entry.targetScale - curS) * LERP_SPEED;
+      const targetBaseScale = (window.GlobalIconScale || 1.0) * entry.targetScale;
+      const nextS = curS + (targetBaseScale - curS) * LERP_SPEED;
       entry.nodeGroup.scale.setScalar(nextS);
 
       // Lerp glow opacity
@@ -782,9 +787,42 @@ class PanopticonSphere {
     if (isBackground) {
       entry.glowMat.color.set(0x22ff88); // Pulsing green
     } else {
-      entry.glowMat.color.set(0x4f8ef7); // Back to blue
+      entry.glowMat.color.copy(this._accentColor); // Back to dynamic accent
       entry.targetGlow = 0;
     }
+  }
+
+  updateAccentColor(hex) {
+    const color = new THREE.Color(hex);
+    this._accentColor.copy(color);
+    
+    // 1. Backlight
+    if (this._backLight) this._backLight.color.copy(color);
+    
+    // 2. Pulse shell
+    if (this._pulseUniforms) this._pulseUniforms.uColor.value.copy(color);
+    
+    // 3. Sphere base color (dark version)
+    if (this._sphereMesh) {
+      this._sphereMesh.material.color.copy(color).multiplyScalar(0.12);
+    }
+    
+    // 4. Edges (mid-brightness)
+    if (this._edgeLines) {
+      this._edgeLines.material.color.copy(color).multiplyScalar(0.8);
+    }
+
+    // 5. Inner glow (very dark version)
+    if (this._innerGlowMesh) {
+       this._innerGlowMesh.material.color.copy(color).multiplyScalar(0.2);
+    }
+
+    // 6. Existing node glows
+    this.nodes.forEach(entry => {
+      if (!entry.isBackground) {
+        entry.glowMat.color.copy(color);
+      }
+    });
   }
 
   // Point the camera directly at a linked node by repo name.
