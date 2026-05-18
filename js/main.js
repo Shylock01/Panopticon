@@ -525,16 +525,20 @@
     if (sphere) sphere.setFocusedNode(appEntry.repoName);
   }
 
-  function hideNodePopup() {
+  // silent=true: close the UI without touching browser history (used when
+  // transitioning to the shell so we don't fire a spurious popstate).
+  function hideNodePopup(silent = false) {
     nodePopup.classList.remove('visible');
     setTimeout(() => nodePopup.setAttribute('hidden', ''), 300);
     activePopupApp = null;
     if (sphere) sphere.clearFocusedNode();
-    // Clean up history stack if popup was closed via button (not back btn)
-    const idx = historyStack.lastIndexOf('popup');
-    if (idx !== -1) {
-      historyStack.splice(idx, 1);
-      history.back(); // consume the history entry we pushed
+    if (!silent) {
+      // Closed via button — consume the history entry we pushed.
+      const idx = historyStack.lastIndexOf('popup');
+      if (idx !== -1) {
+        historyStack.splice(idx, 1);
+        history.back();
+      }
     }
   }
 
@@ -581,11 +585,21 @@
     appShell.removeAttribute('hidden');
     appShell.classList.remove('app-shell--hiding');
     shellControls.setAttribute('hidden', '');
-    hideNodePopup();
-    // Push a history entry so the Android back button can background the app.
-    // We push AFTER hideNodePopup so the popup's own history entry is cleaned
-    // up first and shell sits cleanly on top.
-    pushHistoryLayer('shell');
+
+    // Close popup UI silently (no history.back()) to avoid a spurious popstate
+    // that would immediately background the app we're about to open.
+    hideNodePopup(true);
+
+    // If the popup had a history entry, replace it with the shell entry so the
+    // browser history stays clean (one back press = background the app).
+    // If there was no popup entry, push a fresh one.
+    const popupIdx = historyStack.lastIndexOf('popup');
+    if (popupIdx !== -1) {
+      historyStack.splice(popupIdx, 1, 'shell');
+      history.replaceState({ panopticonLayer: 'shell' }, '');
+    } else {
+      pushHistoryLayer('shell');
+    }
   }
 
   popupLaunch.addEventListener('click', (e) => {
