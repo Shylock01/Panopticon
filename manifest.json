@@ -1,6 +1,6 @@
 {
   "name": "Panopticon",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "short_name": "Panopticon",
   "description": "A 3D Hub for your GitHub Pages applications.",
   "start_url": "./",

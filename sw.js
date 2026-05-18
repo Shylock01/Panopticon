@@ -1,6 +1,6 @@
-// sw.js v1.2.4
-const VERSION = '1.2.4';
-const CACHE_NAME = 'panopticon-v1.2.4';
+// sw.js v1.3.1
+const VERSION = '1.3.1';
+const CACHE_NAME = 'panopticon-v1.3.1';
 const ASSETS = [
   './',
   'index.html',
@@ -18,9 +18,28 @@ const ASSETS = [
   'js/auth.js'
 ];
 
-// Wait for explicit skipWaiting message
+// Pre-cache static assets during install with network bypass
 self.addEventListener('install', (event) => {
-  // We no longer call skipWaiting() here automatically
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      // Force reload to bypass and refresh any browser HTTP cache
+      return Promise.all(
+        ASSETS.map((asset) => {
+          const request = new Request(asset, { cache: 'reload' });
+          return fetch(request)
+            .then((response) => {
+              if (response.ok) {
+                return cache.put(asset, response);
+              }
+              throw new Error(`Failed to fetch ${asset}`);
+            })
+            .catch((err) => {
+              console.error(`Pre-caching failed for ${asset}:`, err);
+            });
+        })
+      );
+    })
+  );
 });
 
 self.addEventListener('message', (event) => {
@@ -43,6 +62,12 @@ self.addEventListener('activate', (event) => {
 
 // Network-First Strategy: Try the network, fall back to cache
 self.addEventListener('fetch', (event) => {
+  // Only handle GET requests for caching to prevent TypeError on POST/PUT requests
+  if (event.request.method !== 'GET') {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
   event.respondWith(
     fetch(event.request)
       .then((response) => {

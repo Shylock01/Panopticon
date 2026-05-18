@@ -37,7 +37,7 @@
   }
 
   window.addEventListener('popstate', (e) => {
-    if (e.state && e.state.panopticonLayer) {
+    if (historyStack.length > 0) {
       popHistoryLayer();
     }
   });
@@ -149,6 +149,13 @@
 
   // ─── Bootstrap ───────────────────────────────────────────────────────────
   async function boot() {
+    // Reset active history state to a clean root to prevent out-of-sync restored states on Android PWA launch
+    try {
+      history.replaceState({ panopticonLayer: 'root' }, '');
+    } catch (err) {
+      console.warn('Failed to initialize history state:', err);
+    }
+
     await initStyles();
     const token = Store.getToken();
     if (!token) {
