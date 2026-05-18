@@ -420,18 +420,23 @@ class PanopticonSphere {
     const nodeGroup = new THREE.Group();
     nodeGroup.add(disc, dome, outlineRing);
 
-    // Outer glow sprite (hidden by default)
-    const glowMat = new THREE.SpriteMaterial({
+    // Outer glow plane — locked to node orientation (NOT a billboard sprite).
+    // PlaneGeometry inherits nodeGroup rotation so it stays flat on the sphere
+    // surface rather than always facing the camera and clipping through it.
+    const glowMat = new THREE.MeshBasicMaterial({
       map: this._glowTex,
       color: this._accentColor.clone(),
       transparent: true,
       opacity: 0,
       blending: THREE.NormalBlending,
-      depthWrite: false
+      depthWrite: false,
     });
-    const glow = new THREE.Sprite(glowMat);
+    const glow = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 1),
+      glowMat
+    );
     glow.scale.set(NODE_R * 3.5, NODE_R * 3.5, 1);
-    glow.position.z = -0.02; // slightly behind the disc
+    glow.position.z = -0.02; // slightly behind the disc face
     nodeGroup.add(glow);
 
     nodeGroup.position.copy(normal.clone().multiplyScalar(SPHERE_RADIUS + NODE_H / 2 + 0.06));

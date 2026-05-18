@@ -24,16 +24,15 @@
 
   function popHistoryLayer() {
     // Called when the browser navigates back (hardware back btn or gesture).
-    // The history entry has already been consumed by the browser; we just
-    // need to close the corresponding layer.
+    // The history entry has already been consumed by the browser — we must NOT
+    // call history.back() again here. Use the *Silent core functions directly.
     const layer = historyStack.pop();
     if (layer === 'shell') {
-      // Background the running app — mirrors shellBackgroundBtn behaviour.
-      shellBackgroundBtn.click();
+      backgroundAppCore();   // silent — no extra history.back()
     } else if (layer === 'popup') {
-      hideNodePopup();
+      hideNodePopup(true);   // silent — no extra history.back()
     } else if (layer === 'settings') {
-      hideTokenScreen();
+      hideTokenScreen(true); // silent — no extra history.back()
     }
   }
 
@@ -229,14 +228,21 @@
     requestAnimationFrame(() => tokenScreen.classList.add('visible'));
     pushHistoryLayer('settings');
   }
-  function hideTokenScreen() {
+  // Core visual close — no history manipulation.
+  function hideTokenScreenCore() {
     tokenScreen.classList.remove('visible');
     setTimeout(() => tokenScreen.setAttribute('hidden', ''), 400);
-    // Clean up history stack if settings was closed via button (not back btn)
-    const idx = historyStack.lastIndexOf('settings');
-    if (idx !== -1) {
-      historyStack.splice(idx, 1);
-      history.back(); // consume the history entry we pushed
+  }
+  // silent=true: called from popHistoryLayer (back btn already consumed entry).
+  // silent=false (default): called from close button — consumes the history entry.
+  function hideTokenScreen(silent = false) {
+    hideTokenScreenCore();
+    if (!silent) {
+      const idx = historyStack.lastIndexOf('settings');
+      if (idx !== -1) {
+        historyStack.splice(idx, 1);
+        history.back();
+      }
     }
   }
 
@@ -639,13 +645,14 @@
     }
   });
 
-  shellBackgroundBtn.addEventListener('click', () => {
+  // Core background logic — no history manipulation.
+  // Called by both shellBackgroundBtn handler AND popHistoryLayer (back btn).
+  function backgroundAppCore() {
     if (!currentShellApp) return;
     const repo = currentShellApp.repoName;
     backgroundApps.add(repo);
     sphere?.setNodeBackground(repo, true);
     if (shellHideTimeout) clearTimeout(shellHideTimeout);
-
     appShell.classList.add('app-shell--hiding');
     shellHideTimeout = setTimeout(() => {
       appShell.setAttribute('hidden', '');
@@ -654,11 +661,15 @@
       shellHideTimeout = null;
     }, 400);
     showToast(`${repo} is backgrounded.`, 'success');
-    // Clean up history stack if backgrounded via button (not back btn)
+  }
+
+  shellBackgroundBtn.addEventListener('click', () => {
+    backgroundAppCore();
+    // Consume the history entry we pushed (button-close only, not back btn).
     const idx = historyStack.lastIndexOf('shell');
     if (idx !== -1) {
       historyStack.splice(idx, 1);
-      history.back(); // consume the history entry we pushed
+      history.back();
     }
   });
 
@@ -683,11 +694,11 @@
       shellHideTimeout = null;
     }, 400);
     showToast(`${repo} closed.`, 'info');
-    // Clean up history stack if closed via button (not back btn)
+    // Consume the history entry we pushed (button-close only, not back btn).
     const idx = historyStack.lastIndexOf('shell');
     if (idx !== -1) {
       historyStack.splice(idx, 1);
-      history.back(); // consume the history entry we pushed
+      history.back();
     }
   });
 
