@@ -12,6 +12,37 @@
   let currentShellApp = null;
   let shellHideTimeout = null;
 
+  // ─── History / Android Back Button ───────────────────────────────────────
+  // We maintain a simple stack of modal-layer names so we know what to close.
+  // Values: 'settings' | 'popup' | 'shell'
+  const historyStack = [];
+
+  function pushHistoryLayer(name) {
+    historyStack.push(name);
+    history.pushState({ panopticonLayer: name }, '');
+  }
+
+  function popHistoryLayer() {
+    // Called when the browser navigates back (hardware back btn or gesture).
+    // The history entry has already been consumed by the browser; we just
+    // need to close the corresponding layer.
+    const layer = historyStack.pop();
+    if (layer === 'shell') {
+      // Background the running app — mirrors shellBackgroundBtn behaviour.
+      shellBackgroundBtn.click();
+    } else if (layer === 'popup') {
+      hideNodePopup();
+    } else if (layer === 'settings') {
+      hideTokenScreen();
+    }
+  }
+
+  window.addEventListener('popstate', (e) => {
+    if (e.state && e.state.panopticonLayer) {
+      popHistoryLayer();
+    }
+  });
+
   // ─── DOM refs ────────────────────────────────────────────────────────────
   const canvas = document.getElementById('sphere-canvas');
   const tokenScreen = document.getElementById('token-screen');
@@ -196,10 +227,17 @@
   function showTokenScreen() {
     tokenScreen.removeAttribute('hidden');
     requestAnimationFrame(() => tokenScreen.classList.add('visible'));
+    pushHistoryLayer('settings');
   }
   function hideTokenScreen() {
     tokenScreen.classList.remove('visible');
     setTimeout(() => tokenScreen.setAttribute('hidden', ''), 400);
+    // Clean up history stack if settings was closed via button (not back btn)
+    const idx = historyStack.lastIndexOf('settings');
+    if (idx !== -1) {
+      historyStack.splice(idx, 1);
+      history.back(); // consume the history entry we pushed
+    }
   }
 
   tokenSaveBtn.addEventListener('click', async () => {
@@ -482,6 +520,7 @@
 
     nodePopup.removeAttribute('hidden');
     requestAnimationFrame(() => nodePopup.classList.add('visible'));
+    pushHistoryLayer('popup');
 
     if (sphere) sphere.setFocusedNode(appEntry.repoName);
   }
@@ -491,6 +530,12 @@
     setTimeout(() => nodePopup.setAttribute('hidden', ''), 300);
     activePopupApp = null;
     if (sphere) sphere.clearFocusedNode();
+    // Clean up history stack if popup was closed via button (not back btn)
+    const idx = historyStack.lastIndexOf('popup');
+    if (idx !== -1) {
+      historyStack.splice(idx, 1);
+      history.back(); // consume the history entry we pushed
+    }
   }
 
   popupClose.addEventListener('click', hideNodePopup);
@@ -537,6 +582,10 @@
     appShell.classList.remove('app-shell--hiding');
     shellControls.setAttribute('hidden', '');
     hideNodePopup();
+    // Push a history entry so the Android back button can background the app.
+    // We push AFTER hideNodePopup so the popup's own history entry is cleaned
+    // up first and shell sits cleanly on top.
+    pushHistoryLayer('shell');
   }
 
   popupLaunch.addEventListener('click', (e) => {
@@ -591,6 +640,12 @@
       shellHideTimeout = null;
     }, 400);
     showToast(`${repo} is backgrounded.`, 'success');
+    // Clean up history stack if backgrounded via button (not back btn)
+    const idx = historyStack.lastIndexOf('shell');
+    if (idx !== -1) {
+      historyStack.splice(idx, 1);
+      history.back(); // consume the history entry we pushed
+    }
   });
 
   shellCloseBtn.addEventListener('click', () => {
@@ -614,6 +669,12 @@
       shellHideTimeout = null;
     }, 400);
     showToast(`${repo} closed.`, 'info');
+    // Clean up history stack if closed via button (not back btn)
+    const idx = historyStack.lastIndexOf('shell');
+    if (idx !== -1) {
+      historyStack.splice(idx, 1);
+      history.back(); // consume the history entry we pushed
+    }
   });
 
   popupUnlink.addEventListener('click', async () => {
