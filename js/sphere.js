@@ -71,6 +71,7 @@ class PanopticonSphere {
     this._focusedRepoName = null;
     this._targetTheta     = null;
     this._targetPhi       = null;
+    this._isLocked        = false;
 
     // Zoom state
     // Zoom state
@@ -79,7 +80,7 @@ class PanopticonSphere {
     this._targetRadius   = this._radius;
     this._defaultRadius  = this._radius;
     this._zoomLocked     = savedZoom ? savedZoom.locked : false;
-    this._accentColor    = new THREE.Color(0x4f8ef7);
+    this._accentColor    = new THREE.Color(0x1243b5);
     
     this._pinchDist      = 0;
     this._holdStartTime  = 0;
@@ -155,7 +156,7 @@ class PanopticonSphere {
     this._addSphere();
     this._addPulseShell();
     this._addEdges();
-    this._addInnerGlow();
+    this._addInnerCore();
   }
 
   // Move camera to current theta/phi position, always look at origin.
@@ -190,6 +191,13 @@ class PanopticonSphere {
       this._haloMesh.scale.setScalar(glowScale);
       this._coronaMesh.scale.setScalar(glowScale);
     }
+
+    if (this._sphereUniforms) {
+      this._sphereUniforms.uCameraPos.value.copy(this.camera.position);
+    }
+    if (this._edgeUniforms) {
+      this._edgeUniforms.uCameraPos.value.copy(this.camera.position);
+    }
   }
 
   // ── Eclipse Halo ─────────────────────────────────────────────────────────
@@ -198,19 +206,15 @@ class PanopticonSphere {
     const c1 = document.createElement('canvas');
     c1.width = c1.height = 512;
     const x1 = c1.getContext('2d');
-    const g1 = x1.createRadialGradient(256, 256, 30, 256, 256, 256);
-    g1.addColorStop(0,    'rgba(255,255,255,0.9)');
-    g1.addColorStop(0.18, 'rgba(255,255,255,0.55)');
-    g1.addColorStop(0.42, 'rgba(255,255,255,0.22)');
-    g1.addColorStop(0.70, 'rgba(255,255,255,0.08)');
-    g1.addColorStop(1,    'rgba(255,255,255,0)');
-    x1.fillStyle = g1; x1.fillRect(0, 0, 512, 512);
+    this._haloCanvas = c1;
+    this._haloCtx = x1;
+    this._haloTexture = new THREE.CanvasTexture(c1);
 
     this._haloMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(21.6, 21.6),
       new THREE.MeshBasicMaterial({
-        map: new THREE.CanvasTexture(c1),
-        color: this._accentColor.clone(),
+        map: this._haloTexture,
+        color: new THREE.Color(0xffffff), // base color is white to let canvas colors render exactly
         transparent: true, depthWrite: false,
         blending: THREE.NormalBlending,
       })
@@ -220,24 +224,63 @@ class PanopticonSphere {
     const c2 = document.createElement('canvas');
     c2.width = c2.height = 512;
     const x2 = c2.getContext('2d');
-    const g2 = x2.createRadialGradient(256, 256, 80, 256, 256, 256);
-    g2.addColorStop(0,    'rgba(255,255,255,0)');
-    g2.addColorStop(0.60, 'rgba(255,255,255,0.0)');
-    g2.addColorStop(0.72, 'rgba(255,255,255,0.45)');
-    g2.addColorStop(0.84, 'rgba(255,255,255,0.15)');
-    g2.addColorStop(1,    'rgba(255,255,255,0)');
-    x2.fillStyle = g2; x2.fillRect(0, 0, 512, 512);
+    this._coronaCanvas = c2;
+    this._coronaCtx = x2;
+    this._coronaTexture = new THREE.CanvasTexture(c2);
 
     this._coronaMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(11.6, 11.6),
       new THREE.MeshBasicMaterial({
-        map: new THREE.CanvasTexture(c2),
-        color: this._accentColor.clone(),
+        map: this._coronaTexture,
+        color: new THREE.Color(0xffffff), // base color is white to let canvas colors render exactly
         transparent: true, depthWrite: false,
         blending: THREE.NormalBlending,
       })
     );
     this.scene.add(this._coronaMesh);
+
+    // Initial draw using the default accent color
+    const defaultHex = '#' + this._accentColor.getHexString();
+    this._updateEclipseGlowTextures(defaultHex);
+  }
+
+  _updateEclipseGlowTextures(themeColorHex) {
+    try {
+      const color = new THREE.Color(themeColorHex);
+      const r = Math.round(color.r * 255);
+      const g = Math.round(color.g * 255);
+      const b = Math.round(color.b * 255);
+
+      // 1. Redraw Halo Canvas
+      if (this._haloCtx) {
+        this._haloCtx.clearRect(0, 0, 512, 512);
+        const g1 = this._haloCtx.createRadialGradient(256, 256, 30, 256, 256, 256);
+        g1.addColorStop(0,    'rgba(255,255,255,0.95)'); // Pure white at the center
+        g1.addColorStop(0.18, 'rgba(255,255,255,0.75)'); // Soft white glow
+        g1.addColorStop(0.42, `rgba(${r},${g},${b},0.35)`); // Transition to theme color
+        g1.addColorStop(0.70, `rgba(${r},${g},${b},0.12)`);
+        g1.addColorStop(1,    `rgba(${r},${g},${b},0)`);
+        this._haloCtx.fillStyle = g1;
+        this._haloCtx.fillRect(0, 0, 512, 512);
+        if (this._haloTexture) this._haloTexture.needsUpdate = true;
+      }
+
+      // 2. Redraw Corona Canvas (replaces hollow ring with solid glow disk having a white center)
+      if (this._coronaCtx) {
+        this._coronaCtx.clearRect(0, 0, 512, 512);
+        const g2 = this._coronaCtx.createRadialGradient(256, 256, 0, 256, 256, 256); // Start at 0 to eliminate empty center
+        g2.addColorStop(0,    'rgba(255,255,255,0.95)'); // Pure white at the center
+        g2.addColorStop(0.50, 'rgba(255,255,255,0.65)'); // Smooth white glow
+        g2.addColorStop(0.72, `rgba(${r},${g},${b},0.45)`); // Transition to theme color
+        g2.addColorStop(0.84, `rgba(${r},${g},${b},0.15)`);
+        g2.addColorStop(1,    `rgba(${r},${g},${b},0)`);
+        this._coronaCtx.fillStyle = g2;
+        this._coronaCtx.fillRect(0, 0, 512, 512);
+        if (this._coronaTexture) this._coronaTexture.needsUpdate = true;
+      }
+    } catch (err) {
+      console.error("Error in _updateEclipseGlowTextures:", err);
+    }
   }
 
   _initGlowTexture() {
@@ -256,21 +299,182 @@ class PanopticonSphere {
   // ── Sphere Geometry ───────────────────────────────────────────────────────
 
   _addSphere() {
-    // Diffuse obsidian-like material: dark gray, matte, minimal metalness.
-    // High roughness = spread, soft light response with no harsh reflections.
+    const baseGeo = new THREE.IcosahedronGeometry(SPHERE_RADIUS, DETAIL);
+    const nonIndexedGeo = baseGeo.toNonIndexed();
+
+    const posAttr = nonIndexedGeo.attributes.position;
+    const count = posAttr.count;
+    const centroids = new Float32Array(count * 3);
+
+    for (let i = 0; i < count; i += 3) {
+      const x0 = posAttr.getX(i), y0 = posAttr.getY(i), z0 = posAttr.getZ(i);
+      const x1 = posAttr.getX(i + 1), y1 = posAttr.getY(i + 1), z1 = posAttr.getZ(i + 1);
+      const x2 = posAttr.getX(i + 2), y2 = posAttr.getY(i + 2), z2 = posAttr.getZ(i + 2);
+
+      const cx = (x0 + x1 + x2) / 3;
+      const cy = (y0 + y1 + y2) / 3;
+      const cz = (z0 + z1 + z2) / 3;
+
+      for (let j = 0; j < 3; j++) {
+        const idx = (i + j) * 3;
+        centroids[idx]     = cx;
+        centroids[idx + 1] = cy;
+        centroids[idx + 2] = cz;
+      }
+    }
+
+    nonIndexedGeo.setAttribute('aCentroid', new THREE.BufferAttribute(centroids, 3));
+
     const mat = new THREE.MeshStandardMaterial({
-      color:    this._accentColor.clone().multiplyScalar(0.12),
-      roughness: 0.82,      // mostly diffuse — soft, stone-like shading
-      metalness: 0.04,      // nearly zero — avoids mirror-like highlights
+      color:    this._accentColor.clone().multiplyScalar(1.0),
+      roughness: 0.8,
+      metalness: 0.0,
+      side: THREE.FrontSide
     });
-    this._sphereMesh = new THREE.Mesh(new THREE.IcosahedronGeometry(SPHERE_RADIUS, DETAIL), mat);
+
+    this._sphereUniforms = {
+      uCameraPos: { value: new THREE.Vector3() }
+    };
+
+    mat.onBeforeCompile = (shader) => {
+      shader.uniforms.uCameraPos = this._sphereUniforms.uCameraPos;
+
+      shader.vertexShader = `
+        attribute vec3 aCentroid;
+        uniform vec3 uCameraPos;
+      ` + shader.vertexShader;
+
+      shader.vertexShader = shader.vertexShader.replace(
+        '#include <begin_vertex>',
+        `
+        vec3 faceNormal = normalize(aCentroid);
+        vec3 camDir = normalize(uCameraPos);
+        float dotCam = dot(faceNormal, camDir);
+        float t = clamp((dotCam - 0.76) / 0.24, 0.0, 1.0);
+        float scale = 1.0 - pow(t, 4.0);
+        
+        vec3 localPos = position - aCentroid;
+        vec3 transformed = aCentroid + localPos * scale;
+        `
+      );
+    };
+
+    this._sphereMesh = new THREE.Mesh(nonIndexedGeo, mat);
     this.group.add(this._sphereMesh);
+
+    // Interior material: solid logo blue, no gradient, renders on the backside
+    const backColor = this._accentColor.clone().lerp(new THREE.Color(0xffffff), 0.4);
+    const backMat = new THREE.MeshBasicMaterial({
+      color: backColor,
+      side: THREE.BackSide
+    });
+
+    backMat.onBeforeCompile = (shader) => {
+      shader.uniforms.uCameraPos = this._sphereUniforms.uCameraPos;
+
+      shader.vertexShader = `
+        attribute vec3 aCentroid;
+        uniform vec3 uCameraPos;
+      ` + shader.vertexShader;
+
+      shader.vertexShader = shader.vertexShader.replace(
+        '#include <begin_vertex>',
+        `
+        vec3 faceNormal = normalize(aCentroid);
+        vec3 camDir = normalize(uCameraPos);
+        float dotCam = dot(faceNormal, camDir);
+        float t = clamp((dotCam - 0.76) / 0.24, 0.0, 1.0);
+        float scale = 1.0 - pow(t, 4.0);
+        
+        vec3 localPos = position - aCentroid;
+        vec3 transformed = aCentroid + localPos * scale;
+        `
+      );
+    };
+
+    this._sphereInteriorMesh = new THREE.Mesh(nonIndexedGeo, backMat);
+    this.group.add(this._sphereInteriorMesh);
   }
 
   _addEdges() {
-    const edges = new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(SPHERE_RADIUS + 0.004, DETAIL));
-    const mat   = new THREE.LineBasicMaterial({ color: this._accentColor.clone().multiplyScalar(0.8), transparent: true, opacity: 0.32 });
-    this._edgeLines = new THREE.LineSegments(edges, mat);
+    const baseGeo = new THREE.IcosahedronGeometry(SPHERE_RADIUS + 0.002, DETAIL);
+    const nonIndexedGeo = baseGeo.toNonIndexed();
+
+    const posAttr = nonIndexedGeo.attributes.position;
+    const count = posAttr.count;
+
+    const lineVertices = new Float32Array(count * 2 * 3);
+    const lineCentroids = new Float32Array(count * 2 * 3);
+
+    let lineIdx = 0;
+    for (let i = 0; i < count; i += 3) {
+      const x0 = posAttr.getX(i), y0 = posAttr.getY(i), z0 = posAttr.getZ(i);
+      const x1 = posAttr.getX(i + 1), y1 = posAttr.getY(i + 1), z1 = posAttr.getZ(i + 1);
+      const x2 = posAttr.getX(i + 2), y2 = posAttr.getY(i + 2), z2 = posAttr.getZ(i + 2);
+
+      const cx = (x0 + x1 + x2) / 3;
+      const cy = (y0 + y1 + y2) / 3;
+      const cz = (z0 + z1 + z2) / 3;
+
+      const pts = [
+        x0, y0, z0,  x1, y1, z1,
+        x1, y1, z1,  x2, y2, z2,
+        x2, y2, z2,  x0, y0, z0
+      ];
+
+      for (let j = 0; j < 18; j += 3) {
+        lineVertices[lineIdx]     = pts[j];
+        lineVertices[lineIdx + 1] = pts[j + 1];
+        lineVertices[lineIdx + 2] = pts[j + 2];
+
+        lineCentroids[lineIdx]     = cx;
+        lineCentroids[lineIdx + 1] = cy;
+        lineCentroids[lineIdx + 2] = cz;
+
+        lineIdx += 3;
+      }
+    }
+
+    const lineGeo = new THREE.BufferGeometry();
+    lineGeo.setAttribute('position', new THREE.BufferAttribute(lineVertices, 3));
+    lineGeo.setAttribute('aCentroid', new THREE.BufferAttribute(lineCentroids, 3));
+
+    this._edgeUniforms = {
+      uCameraPos: { value: new THREE.Vector3() },
+      uColor: { value: this._accentColor.clone() }
+    };
+
+    const mat = new THREE.ShaderMaterial({
+      uniforms: this._edgeUniforms,
+      vertexShader: `
+        attribute vec3 aCentroid;
+        uniform vec3 uCameraPos;
+        varying float vScale;
+        void main() {
+          vec3 faceNormal = normalize(aCentroid);
+          vec3 camDir = normalize(uCameraPos);
+          float dotCam = dot(faceNormal, camDir);
+          float t = clamp((dotCam - 0.76) / 0.24, 0.0, 1.0);
+          float scale = 1.0 - pow(t, 4.0);
+          vScale = scale;
+          vec3 localPos = position - aCentroid;
+          vec3 scaledPos = aCentroid + localPos * scale;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(scaledPos, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 uColor;
+        varying float vScale;
+        void main() {
+          if (vScale < 0.01) discard;
+          gl_FragColor = vec4(uColor, vScale * 0.32);
+        }
+      `,
+      transparent: true,
+      depthWrite: false,
+    });
+
+    this._edgeLines = new THREE.LineSegments(lineGeo, mat);
     this.group.add(this._edgeLines);
   }
 
@@ -331,15 +535,6 @@ class PanopticonSphere {
     this.group.add(shell);
   }
 
-  _addInnerGlow() {
-    const mat = new THREE.MeshBasicMaterial({
-      color: this._accentColor.clone().multiplyScalar(0.2), transparent: true, opacity: 0.06,
-      blending: THREE.NormalBlending, depthWrite: false, side: THREE.BackSide,
-    });
-    this._innerGlowMesh = new THREE.Mesh(new THREE.IcosahedronGeometry(SPHERE_RADIUS * 0.96, 2), mat);
-    this.group.add(this._innerGlowMesh);
-  }
-
   // ── Nodes ─────────────────────────────────────────────────────────────────
 
   // Draws the icon url onto a circular-clipped canvas and returns a CanvasTexture.
@@ -350,6 +545,9 @@ class PanopticonSphere {
     const ctx = c.getContext('2d');
     const tex = new THREE.CanvasTexture(c);
     const img = new Image();
+    if (iconDataUrl && !iconDataUrl.startsWith('data:')) {
+      img.crossOrigin = "anonymous";
+    }
     img.onload = () => {
       ctx.clearRect(0, 0, size, size);
       
@@ -360,11 +558,11 @@ class PanopticonSphere {
       ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
       ctx.clip();
       
-      ctx.fillStyle = '#000000';
-      ctx.fill();
-      
       ctx.drawImage(img, padding, padding, s, s);
       tex.needsUpdate = true;
+    };
+    img.onerror = (err) => {
+      console.error("Failed to load icon image in _circularTexture for src:", iconDataUrl, err);
     };
     img.src = iconDataUrl;
     return tex;
@@ -383,42 +581,111 @@ class PanopticonSphere {
     const normal  = slotPos.clone().normalize();
 
     const iconTex = this._circularTexture(appEntry.iconDataUrl);
-    const iconMat = new THREE.MeshStandardMaterial({ map: iconTex, roughness: 0.2, metalness: 0.1 });
-    const darkMat = new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 1.0, metalness: 0.0 });
-
-    // Round disc: CylinderGeometry rotated so top cap (+Y→+Z) shows icon
-    // CylinderGeometry groups: [lateral(0), topCap(1), bottomCap(2)]
-    const discGeo = new THREE.CylinderGeometry(NODE_R, NODE_R, NODE_H, 32, 1, false);
-    discGeo.rotateX(Math.PI / 2); // top cap now faces local +Z
-    discGeo.rotateZ(Math.PI / 2); // Rotate 90deg CCW to correct icon orientation
-    const disc = new THREE.Mesh(discGeo, [darkMat, iconMat, darkMat]);
-    disc.userData = { appEntry, slot }; // for raycasting
-
-    // Liquid glass dome overlay
-    const domeGeo = new THREE.SphereGeometry(NODE_R, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2);
-    domeGeo.scale(1, 0.25, 1);
-    domeGeo.rotateX(Math.PI / 2);
+    
+    // Oblate Glass Spheroid: squashed along local Z-axis (thickness 0.14)
+    const glassGeo = new THREE.SphereGeometry(NODE_R, 32, 32);
+    glassGeo.scale(1, 1, 0.35);
     const glassMat = new THREE.MeshPhysicalMaterial({
       color: 0xffffff,
-      metalness: 0.9,
-      roughness: 0.05,
-      envMapIntensity: 1.0,
-      clearcoat: 1.0,
-      clearcoatRoughness: 0.1,
+      metalness: 0.0,
+      roughness: 0.85,             // extremely matte frosted glass look
+      opacity: 0.65,               // translucent frosted glass
       transparent: true,
-      opacity: 0.15
+      clearcoat: 0.0,              // remove shiny coat completely for a true matte texture
+      specularIntensity: 0.0,      // remove specular highlights completely
+      reflectivity: 0.0,           // zero reflectivity for a non-reflective matte appearance
+      ior: 1.0,                    // index of refraction 1.0 (no distortion/specular reflections)
+      envMapIntensity: 0.0,        // zero environment mapping reflections
+      depthWrite: false            // disable depth writing to avoid sorting and clipping bugs with the logo plane
     });
-    const dome = new THREE.Mesh(domeGeo, glassMat);
-    dome.position.z = NODE_H / 2; // sit directly on top of the icon face
+    const glassBody = new THREE.Mesh(glassGeo, glassMat);
+    glassBody.userData = { appEntry, slot }; // Store metadata for raycasting
+    
+    const disc = glassBody; // Backwards compatible mapping for raycaster boundary
 
-    // Outline ring (thin green border for background state)
-    const outlineMat = new THREE.MeshBasicMaterial({ color: 0x22ff88, transparent: true, opacity: 0 });
-    const outlineGeo = new THREE.TorusGeometry(NODE_R, 0.008, 8, 32);
-    const outlineRing = new THREE.Mesh(outlineGeo, outlineMat);
-    outlineRing.position.z = NODE_H / 2; // sit at front face edge
+    // Suspended Flat Logo Plane (positioned exactly on the front surface of the frosted glass spheroid)
+    const logoGeo = new THREE.PlaneGeometry(NODE_R * 1.55, NODE_R * 1.55);
+    const logoMat = new THREE.MeshBasicMaterial({
+      map: iconTex,
+      transparent: true,
+      depthWrite: false
+    });
+    const logoMesh = new THREE.Mesh(logoGeo, logoMat);
+    logoMesh.position.z = 0.072; // Placed slightly in front of the spheroid apex (0.07) for perfect sharpness and rendering visibility
+    
+    const iconMat = logoMat; // Backwards compatible mapping for dynamic icon canvas updates
+
+    // Custom organic bubbling/rippling outline Shader Material
+    const rippleGeo = new THREE.PlaneGeometry(NODE_R * 2.6, NODE_R * 2.6);
+    const rippleMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uTime: { value: 0 },
+        uHoverProgress: { value: 0 },
+        uFocusedProgress: { value: 0 },
+        uThemeColor: { value: this._accentColor.clone() }
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        varying vec2 vUv;
+        uniform float uTime;
+        uniform float uHoverProgress;
+        uniform float uFocusedProgress;
+        uniform vec3 uThemeColor;
+
+        void main() {
+          vec2 uv = vUv - 0.5;
+          float dist = length(uv);
+          float angle = atan(uv.y, uv.x);
+
+          float activeProgress = max(uHoverProgress, uFocusedProgress);
+          if (activeProgress < 0.001) {
+            discard;
+          }
+
+          // Dynamic wave interference equations for organic, bubbling ripple shapes
+          float wave1 = sin(angle * 5.0 - uTime * 3.5) * 0.025;
+          float wave2 = cos(angle * 8.0 + uTime * 2.2) * 0.012;
+          float displacement = wave1 + wave2;
+
+          float rWarped = dist + displacement;
+
+          // Define centered soft ring halo profile (just outside glass sphere edge at 0.385 UV distance)
+          float rCenter = 0.39;
+          float rThickness = 0.085;
+
+          // Soft bell curve halo
+          float intensity = smoothstep(rCenter - rThickness, rCenter, rWarped) *
+                            smoothstep(rCenter + rThickness, rCenter, rWarped);
+
+          // LERP between White (hover) and Active Theme Color (focus/background)
+          vec3 finalColor = mix(vec3(1.0, 1.0, 1.0), uThemeColor, uFocusedProgress);
+
+          // Boost outline brightness in focus state for glowing effect
+          float multiplier = mix(1.0, 1.35, uFocusedProgress);
+          float alpha = intensity * activeProgress * multiplier;
+
+          if (alpha < 0.01) {
+            discard;
+          }
+
+          gl_FragColor = vec4(finalColor, alpha);
+        }
+      `,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.NormalBlending
+    });
+    const rippleMesh = new THREE.Mesh(rippleGeo, rippleMat);
+    rippleMesh.position.z = -0.015; // Set slightly behind glass spheroid body
 
     const nodeGroup = new THREE.Group();
-    nodeGroup.add(disc, dome, outlineRing);
+    nodeGroup.add(disc, logoMesh, rippleMesh);
 
     // Outer glow plane — locked to node orientation (NOT a billboard sprite).
     // PlaneGeometry inherits nodeGroup rotation so it stays flat on the sphere
@@ -439,7 +706,15 @@ class PanopticonSphere {
     glow.position.z = -0.02; // slightly behind the disc face
     nodeGroup.add(glow);
 
-    nodeGroup.position.copy(normal.clone().multiplyScalar(SPHERE_RADIUS + NODE_H / 2 + 0.06));
+    // Assign explicit rendering orders to guarantee correct layer sorting:
+    // glow (8) -> ripple (9) -> glassBody (10) -> logoMesh (11)
+    glow.renderOrder = 8;
+    rippleMesh.renderOrder = 9;
+    glassBody.renderOrder = 10;
+    logoMesh.renderOrder = 11;
+
+    // Position nodeGroup slightly away from center, factoring in the 0.07 local Z offset of the squashed spheroid
+    nodeGroup.position.copy(normal.clone().multiplyScalar(SPHERE_RADIUS + 0.13));
     nodeGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
 
     this.group.add(nodeGroup);
@@ -451,8 +726,8 @@ class PanopticonSphere {
     };
 
     this.nodes.set(repoName, {
-      nodeGroup, disc, iconMat, iconTex, outlineMat, appEntry: normalizedEntry, slot, glowMat,
-      glowSprite: glow,
+      nodeGroup, disc, iconMat, iconTex, appEntry: normalizedEntry, slot, glowMat,
+      glowSprite: glow, rippleMat,
       targetScale: 1, targetGlow: 0
     });
   }
@@ -748,6 +1023,11 @@ class PanopticonSphere {
       this._pulseUniforms.uTime.value = performance.now() / 1000;
     }
 
+    // Update core time
+    if (this._coreMesh && this._coreMesh.material.uniforms) {
+      this._coreMesh.material.uniforms.uTime.value = performance.now() / 1000;
+    }
+
     // Subtle backlight pulse
     const time = performance.now() * 0.0005;
     this._backLight.intensity = 20 + Math.sin(time) * 4;
@@ -762,26 +1042,38 @@ class PanopticonSphere {
 
       // Lerp glow opacity
       let targetO = entry.targetGlow;
-      if (entry.isBackground) {
-        // More prominent pulse: 0.3 to 1.0 opacity
-        targetO = 0.65 + Math.sin(now * 0.004) * 0.35;
-      }
 
       const curO = entry.glowMat.opacity;
       const nextO = curO + (targetO - curO) * LERP_SPEED;
       entry.glowMat.opacity = nextO;
 
-      // Also slightly scale up the glow if backgrounded
-      const tGlowS = entry.isBackground ? (NODE_R * 4.2) : (NODE_R * 3.5);
+      // Reset scale logic to normal scale (no special scale up for backgrounded glow sprite)
+      const tGlowS = NODE_R * 3.5;
       const curGlowS = entry.glowSprite.scale.x;
       const nextGlowS = curGlowS + (tGlowS - curGlowS) * LERP_SPEED;
       entry.glowSprite.scale.set(nextGlowS, nextGlowS, 1);
       
-      // Lerp outline ring opacity
-      if (entry.outlineMat) {
-        const targetOutlineO = entry.isBackground ? 0.8 : 0;
-        const curOutlineO = entry.outlineMat.opacity;
-        entry.outlineMat.opacity = curOutlineO + (targetOutlineO - curOutlineO) * LERP_SPEED;
+      // Lerp custom rippling shader outline uniforms
+      if (entry.rippleMat) {
+        const isHovered = (this._hoveredNode === entry.nodeGroup);
+        const isFocused = (entry.appEntry.repoName === this._focusedRepoName);
+        const isBackground = entry.isBackground === true;
+
+        // If focused or running in the background, we trigger the colored/green ripple
+        const targetFocused = (isFocused || isBackground) ? 1.0 : 0.0;
+        // If hovered and NOT focused/backgrounded, we trigger the white hover ripple
+        const targetHover = (isHovered && !isFocused && !isBackground) ? 1.0 : 0.0;
+
+        entry.rippleMat.uniforms.uHoverProgress.value += (targetHover - entry.rippleMat.uniforms.uHoverProgress.value) * LERP_SPEED;
+        entry.rippleMat.uniforms.uFocusedProgress.value += (targetFocused - entry.rippleMat.uniforms.uFocusedProgress.value) * LERP_SPEED;
+        entry.rippleMat.uniforms.uTime.value = performance.now() / 1000;
+
+        // Color selection: pulsing green for background syncing, active theme accent color otherwise
+        if (isBackground) {
+          entry.rippleMat.uniforms.uThemeColor.value.set(0x22ff88);
+        } else {
+          entry.rippleMat.uniforms.uThemeColor.value.copy(this._accentColor);
+        }
       }
     });
 
@@ -792,82 +1084,254 @@ class PanopticonSphere {
     const entry = this.nodes.get(repoName);
     if (!entry) return;
     entry.isBackground = isBackground;
-    if (isBackground) {
-      entry.glowMat.color.set(0x22ff88); // Pulsing green
-    } else {
-      entry.glowMat.color.copy(this._accentColor); // Back to dynamic accent
-      entry.targetGlow = 0;
-    }
+    // Reset glow color to dynamic theme accent and set target opacity to 0
+    entry.glowMat.color.copy(this._accentColor);
+    entry.targetGlow = 0;
   }
 
   updateAccentColor(hex) {
-    const color = new THREE.Color(hex);
-    this._accentColor.copy(color);
-    
-    const isLightMode = document.documentElement.getAttribute('data-theme') === 'white';
+    try {
+      const theme = document.documentElement.getAttribute('data-theme') || 'blue';
+      const THEME_ACCENTS = {
+        'blue': '#1243b5',
+        'white': '#1a5ecc',
+        'red': '#b71414',
+        'green': '#1ab256',
+        'purple': '#6c25be',
+        'gold': '#bc800f',
+        'black-white': '#686868'
+      };
 
-    // Update global lights for shadow color
-    if (this._ambientLight) {
-      this._ambientLight.color.setHex(isLightMode ? 0x5a6a8a : 0x2a2d3a);
-      this._ambientLight.intensity = isLightMode ? 1.2 : 1.2;
-    }
-    if (this._fillLight) {
-      this._fillLight.color.setHex(isLightMode ? 0x7080aa : 0x7080aa);
-      this._fillLight.intensity = isLightMode ? 0.4 : 0.3;
-    }
+      const themeHex = THEME_ACCENTS[theme] || hex || '#1243b5';
+      const color = new THREE.Color(themeHex);
+      this._accentColor.copy(color);
+      
+      const isLightMode = (theme === 'white');
 
-    // 1. Backlight
-    if (this._backLight) {
-      if (isLightMode) {
-        // Brighten the backlight slightly in light mode
-        const backColor = color.clone();
-        backColor.lerp(new THREE.Color(0xffffff), 0.3);
-        this._backLight.color.copy(backColor);
-      } else {
-        this._backLight.color.copy(color);
-      }
-    }
-    
-    // 2. Pulse shell
-    if (this._pulseUniforms) this._pulseUniforms.uColor.value.copy(color);
-    
-    // 3. Sphere base color
-    if (this._sphereMesh) {
-      if (isLightMode) {
-        this._sphereMesh.material.color.set(0xffffff);
-      } else {
-        this._sphereMesh.material.color.copy(color).multiplyScalar(0.12);
-      }
-    }
-    
-    // 4. Edges
-    if (this._edgeLines) {
-      if (isLightMode) {
-        this._edgeLines.material.color.copy(color);
-      } else {
-        this._edgeLines.material.color.copy(color).multiplyScalar(0.8);
-      }
-    }
+      // Use the default blue theme color (#1243b5) in light mode specifically for the inner core and backing shell interior
+      const coreAndInteriorColor = isLightMode ? new THREE.Color('#1243b5') : color;
 
-    // 5. Inner glow
-    if (this._innerGlowMesh) {
-      if (isLightMode) {
-        this._innerGlowMesh.material.color.set(0xffffff);
-      } else {
-        this._innerGlowMesh.material.color.copy(color).multiplyScalar(0.2);
+      // Update global lights for shadow color
+      if (this._ambientLight) {
+        this._ambientLight.color.setHex(isLightMode ? 0x5a6a8a : 0x2a2d3a);
+        this._ambientLight.intensity = isLightMode ? 1.2 : 1.2;
       }
+      if (this._fillLight) {
+        this._fillLight.color.setHex(isLightMode ? 0x7080aa : 0x7080aa);
+        this._fillLight.intensity = isLightMode ? 0.4 : 0.3;
+      }
+
+      // 1. Backlight
+      if (this._backLight) {
+        if (isLightMode) {
+          const backColor = color.clone().lerp(new THREE.Color(0xffffff), 0.3);
+          this._backLight.color.copy(backColor);
+        } else {
+          this._backLight.color.copy(color);
+        }
+      }
+      
+      // 2. Pulse shell
+      if (this._pulseUniforms && this._pulseUniforms.uColor) {
+        this._pulseUniforms.uColor.value.copy(color);
+      }
+      
+      // 3. Sphere base color
+      if (this._sphereMesh && this._sphereMesh.material) {
+        if (isLightMode) {
+          this._sphereMesh.material.color.set(0xffffff);
+        } else {
+          this._sphereMesh.material.color.copy(color);
+        }
+      }
+
+      // 3b. Sphere interior color
+      if (this._sphereInteriorMesh && this._sphereInteriorMesh.material) {
+        const lightColor = coreAndInteriorColor.clone().lerp(new THREE.Color(0xffffff), 0.4);
+        this._sphereInteriorMesh.material.color.copy(lightColor);
+      }
+      
+      // 4. Edges
+      if (this._edgeLines && this._edgeLines.material && this._edgeLines.material.uniforms && this._edgeLines.material.uniforms.uColor) {
+        this._edgeLines.material.uniforms.uColor.value.copy(color);
+      }
+
+      // 6. Halo and Corona Canvas Dynamic Gradient Re-draw
+      this._updateEclipseGlowTextures(themeHex);
+
+      // 7. Existing node glows
+      if (this.nodes) {
+        this.nodes.forEach(entry => {
+          if (entry && entry.glowMat) {
+            entry.glowMat.color.copy(color);
+          }
+        });
+      }
+
+      // 8. Core dynamic colors
+      if (this._coreUniforms) {
+        if (this._coreUniforms.uDarkColor && this._coreUniforms.uDarkColor.value) {
+          this._coreUniforms.uDarkColor.value.copy(coreAndInteriorColor).multiplyScalar(0.015);
+        }
+        if (this._coreUniforms.uLightColor && this._coreUniforms.uLightColor.value) {
+          this._coreAndLightColor = coreAndInteriorColor.clone().lerp(new THREE.Color(0xffffff), 0.4);
+          this._coreUniforms.uLightColor.value.copy(this._coreAndLightColor);
+        }
+      }
+
+      // 9. Core outer glow
+      if (this._coreGlowMesh && this._coreGlowMesh.material && this._coreGlowMesh.material.uniforms) {
+        if (this._coreGlowMesh.material.uniforms.uGlowColor && this._coreGlowMesh.material.uniforms.uGlowColor.value) {
+          this._coreGlowMesh.material.uniforms.uGlowColor.value.copy(coreAndInteriorColor);
+        }
+        if (this._coreGlowMesh.material.uniforms.uCenterColor && this._coreGlowMesh.material.uniforms.uCenterColor.value) {
+          this._coreGlowMesh.material.uniforms.uCenterColor.value.copy(coreAndInteriorColor).lerp(new THREE.Color(0xffffff), 0.4);
+        }
+      }
+    } catch (err) {
+      console.error("Error in updateAccentColor:", err);
     }
+  }
 
-    // 6. Halo and Corona
-    if (this._haloMesh) this._haloMesh.material.color.copy(color);
-    if (this._coronaMesh) this._coronaMesh.material.color.copy(color);
+  _addInnerCore() {
+    // The core is a soft, organic white-blue glowing ball with a dynamic bubbling noise effect
+    const coreGeo = new THREE.SphereGeometry(1.2, 32, 32);
+    this._coreUniforms = {
+      uTime:       { value: 0 },
+      uDarkColor:  { value: this._accentColor.clone().multiplyScalar(0.015) },
+      uLightColor: { value: this._accentColor.clone().lerp(new THREE.Color(0xffffff), 0.4) }
+    };
+    const coreMat = new THREE.ShaderMaterial({
+      uniforms: this._coreUniforms,
+      vertexShader: `
+        uniform float uTime;
+        varying vec3 vNormal;
+        varying vec3 vViewPosition;
+        varying float vNoise;
 
-    // 7. Existing node glows
-    this.nodes.forEach(entry => {
-      if (!entry.isBackground) {
-        entry.glowMat.color.copy(color);
-      }
+        void main() {
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          vNormal = normalize(normalMatrix * normal);
+          vViewPosition = -mvPosition.xyz;
+
+          // Warp coordinate lookup with dynamic low-frequency sines to add natural organic swirling distortion
+          vec3 warpedPos = position + vec3(
+            sin(position.y * 1.8 + uTime * 0.8),
+            cos(position.z * 1.8 + uTime * 0.7),
+            sin(position.x * 1.8 + uTime * 0.9)
+          ) * 0.22;
+
+          // Composite wave for a premium "bubbling noise" effect
+          // Scale is made larger by reducing frequency multiplier (2.2 and 5.5 instead of 4.0 and 10.0)
+          float wave1 = sin(warpedPos.x * 2.2 + uTime * 1.6) * 
+                        cos(warpedPos.y * 2.2 + uTime * 1.2) * 0.042;
+          float wave2 = sin(warpedPos.z * 5.5 - uTime * 2.8) * 
+                        cos(warpedPos.x * 5.5 + uTime * 2.2) * 0.016;
+          float wave = wave1 + wave2;
+
+          vNoise = wave; // Pass displacement to fragment shader for peak coloring
+
+          vec3 displacedPosition = position + normal * wave;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(displacedPosition, 1.0);
+        }
+      `,
+      fragmentShader: `
+        varying vec3 vNormal;
+        varying vec3 vViewPosition;
+        varying float vNoise;
+        uniform float uTime;
+        uniform vec3 uDarkColor;
+        uniform vec3 uLightColor;
+
+        void main() {
+          vec3 normal = normalize(vNormal);
+          vec3 viewDir = normalize(vViewPosition);
+
+          // Soft spherical glow falloff - widened to make the edge extremely soft and fuzzy
+          float rim = max(0.0, dot(normal, viewDir));
+
+          // Map vNoise (roughly -0.045 to +0.045) to a [0.0, 1.0] range
+          float colorMix = smoothstep(-0.02, 0.028, vNoise);
+          vec3 baseColor = mix(uDarkColor, uLightColor, colorMix);
+
+          // Subtle constant energy flicker
+          float brightness = 1.0 + sin(uTime * 18.0) * 0.05;
+
+          // Super soft, fuzzy fading edge
+          float alpha = smoothstep(0.0, 0.45, rim) * 0.92 * brightness;
+
+          gl_FragColor = vec4(baseColor, alpha);
+        }
+      `,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide
     });
+    this._coreMesh = new THREE.Mesh(coreGeo, coreMat);
+    this.group.add(this._coreMesh);
+
+    // Soft, volumetric Fresnel glow around the inner core with a seamless falloff
+    // Transitions from theme accent color at the outer edges to white closest to the core
+    const glowGeo = new THREE.SphereGeometry(1.5, 32, 32);
+    const glowMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uGlowColor: { value: this._accentColor.clone() },
+        uCenterColor: { value: this._accentColor.clone().lerp(new THREE.Color(0xffffff), 0.4) },
+        uGlowPower: { value: 1.5 },
+        uGlowMultiplier: { value: 0.8 }
+      },
+      vertexShader: `
+        varying vec3 vNormal;
+        varying vec3 vViewPosition;
+        void main() {
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          vNormal = normalize(normalMatrix * normal);
+          vViewPosition = -mvPosition.xyz;
+          gl_Position = projectionMatrix * mvPosition;
+        }
+      `,
+      fragmentShader: `
+        varying vec3 vNormal;
+        varying vec3 vViewPosition;
+        uniform vec3 uGlowColor;
+        uniform vec3 uCenterColor;
+        uniform float uGlowPower;
+        uniform float uGlowMultiplier;
+
+        void main() {
+          vec3 normal = normalize(vNormal);
+          vec3 viewDir = normalize(vViewPosition);
+          
+          float rim = max(0.0, dot(normal, viewDir));
+          
+          // Color transitions from theme color at the edges to a premium soft light blue near the center core
+          float colorBlend = smoothstep(0.4, 0.85, rim);
+          vec3 finalColor = mix(uGlowColor, uCenterColor, colorBlend);
+          
+          // Opacity peaks in the center (meeting the core) and fades out smoothly to the edges
+          float alpha = pow(rim, uGlowPower) * uGlowMultiplier;
+          
+          gl_FragColor = vec4(finalColor, alpha);
+        }
+      `,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide
+    });
+    this._coreGlowMesh = new THREE.Mesh(glowGeo, glowMat);
+    this.group.add(this._coreGlowMesh);
+  }
+
+  lockFocus(repoName) {
+    this._isLocked = true;
+    this.setFocusedNode(repoName);
+  }
+
+  unlockFocus() {
+    this._isLocked = false;
+    this.clearFocusedNode();
   }
 
   // Point the camera directly at a linked node by repo name.
@@ -903,6 +1367,7 @@ class PanopticonSphere {
   }
 
   clearFocusedNode() {
+    if (this._isLocked) return;
     this._focusedRepoName = null;
     this._targetTheta = null;
     this._targetPhi = null;

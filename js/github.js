@@ -6,7 +6,7 @@ window.GH = (() => {
   const API_BASE = 'https://api.github.com';
 
   const ICON_COLORS = [
-    '#4f8ef7', '#7c6ef7', '#f74fa8', '#f7874f',
+    '#1243b5', '#7c6ef7', '#f74fa8', '#f7874f',
     '#4ff7c0', '#f7d44f', '#4fc9f7', '#a44ff7',
     '#f74f4f', '#4ff76a', '#f7a14f', '#4f7ff7',
   ];

@@ -586,6 +586,8 @@
     if (!appEntry) return;
     currentShellApp = appEntry;
 
+    if (sphere) sphere.lockFocus(appEntry.repoName);
+
     // Clear any pending hide timeout to prevent race conditions
     if (shellHideTimeout) {
       clearTimeout(shellHideTimeout);
@@ -659,6 +661,7 @@
     const repo = currentShellApp.repoName;
     backgroundApps.add(repo);
     sphere?.setNodeBackground(repo, true);
+    if (sphere) sphere.unlockFocus();
     if (shellHideTimeout) clearTimeout(shellHideTimeout);
     appShell.classList.add('app-shell--hiding');
     shellHideTimeout = setTimeout(() => {
@@ -685,6 +688,7 @@
     const repo = currentShellApp.repoName;
     backgroundApps.delete(repo);
     sphere?.setNodeBackground(repo, false);
+    if (sphere) sphere.unlockFocus();
     if (shellHideTimeout) clearTimeout(shellHideTimeout);
 
     appShell.classList.add('app-shell--hiding');

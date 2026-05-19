@@ -13,9 +13,9 @@
   --surface-hover: rgba(20, 26, 48, 0.85);
   --border:        rgba(80, 110, 200, 0.15);
   --border-bright: rgba(80, 140, 255, 0.3);
-  --accent:        #4f8ef7;
-  --accent-glow:   rgba(79, 142, 247, 0.35);
-  --accent-dark:   #2a5fd4;
+  --accent:        #1243b5;
+  --accent-glow:   rgba(18, 67, 181, 0.35);
+  --accent-dark:   #0a2564;
   --danger:        #f7504f;
   --danger-confirm:#ff2d2d;
   --success:       #4ff7a0;
@@ -40,9 +40,9 @@
   --surface-hover: rgba(240, 244, 250, 0.95);
   --border:        rgba(80, 110, 200, 0.2);
   --border-bright: rgba(80, 140, 255, 0.4);
-  --accent:        #3b78e7;
-  --accent-glow:   rgba(59, 120, 231, 0.25);
-  --accent-dark:   #255bc2;
+  --accent:        #1a5ecc;
+  --accent-glow:   rgba(26, 94, 204, 0.25);
+  --accent-dark:   #113f8c;
   --text-primary:  #111827;
   --text-secondary:#4b5563;
   --text-dim:      #6b7280;
@@ -56,9 +56,9 @@
   --surface-hover: rgba(48, 20, 20, 0.85);
   --border:        rgba(200, 80, 80, 0.15);
   --border-bright: rgba(255, 80, 80, 0.3);
-  --accent:        #f74f4f;
-  --accent-glow:   rgba(247, 79, 79, 0.35);
-  --accent-dark:   #d42a2a;
+  --accent:        #b71414;
+  --accent-glow:   rgba(183, 20, 20, 0.35);
+  --accent-dark:   #7d0a0a;
 }
 
 :root[data-theme="green"] {
@@ -68,9 +68,9 @@
   --surface-hover: rgba(20, 48, 28, 0.85);
   --border:        rgba(80, 200, 120, 0.15);
   --border-bright: rgba(80, 255, 140, 0.3);
-  --accent:        #4ff78e;
-  --accent-glow:   rgba(79, 247, 142, 0.35);
-  --accent-dark:   #2ad46a;
+  --accent:        #1ab256;
+  --accent-glow:   rgba(26, 178, 86, 0.35);
+  --accent-dark:   #117036;
 }
 
 :root[data-theme="purple"] {
@@ -80,9 +80,9 @@
   --surface-hover: rgba(36, 20, 48, 0.85);
   --border:        rgba(150, 110, 200, 0.15);
   --border-bright: rgba(180, 140, 255, 0.3);
-  --accent:        #a275f0;
-  --accent-glow:   rgba(162, 117, 240, 0.35);
-  --accent-dark:   #8150d4;
+  --accent:        #6c25be;
+  --accent-glow:   rgba(108, 37, 190, 0.35);
+  --accent-dark:   #471580;
 }
 
 :root[data-theme="gold"] {
@@ -92,9 +92,9 @@
   --surface-hover: rgba(48, 38, 20, 0.85);
   --border:        rgba(200, 160, 80, 0.15);
   --border-bright: rgba(255, 200, 80, 0.3);
-  --accent:        #f7b74f;
-  --accent-glow:   rgba(247, 183, 79, 0.35);
-  --accent-dark:   #d4962a;
+  --accent:        #bc800f;
+  --accent-glow:   rgba(188, 128, 15, 0.35);
+  --accent-dark:   #7d5306;
 }
 
 :root[data-theme="black-white"] {
@@ -104,9 +104,9 @@
   --surface-hover: rgba(32, 32, 32, 0.85);
   --border:        rgba(128, 128, 128, 0.15);
   --border-bright: rgba(160, 160, 160, 0.3);
-  --accent:        #a0a0a0;
-  --accent-glow:   rgba(160, 160, 160, 0.35);
-  --accent-dark:   #707070;
+  --accent:        #686868;
+  --accent-glow:   rgba(104, 104, 104, 0.35);
+  --accent-dark:   #404040;
 }
 
 /* ── Theme Selector ── */
