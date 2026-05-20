@@ -363,7 +363,7 @@ body {
   align-items: center;
   justify-content: center;
   box-shadow: 0 0 20px var(--accent-glow), 0 4px 24px rgba(0,0,30,0.7);
-  transition: transform var(--transition), box-shadow var(--transition), background var(--transition);
+  transition: transform var(--transition), box-shadow var(--transition), background var(--transition), opacity var(--transition);
 }
 .add-btn:hover {
   transform: translateX(-50%) scale(1.1);
@@ -373,6 +373,13 @@ body {
 .add-btn:active { transform: translateX(-50%) scale(0.96); }
 .add-btn svg { transition: transform var(--transition); }
 .add-btn:hover svg { transform: rotate(90deg); }
+
+/* Hide Add App button when app popup is visible */
+body:has(#node-popup.visible) .add-btn {
+  transform: translateX(-50%) translateY(120px);
+  opacity: 0;
+  pointer-events: none;
+}
 
 /* ── Shared Buttons ── */
 .btn {
@@ -654,7 +661,7 @@ body {
 /* ── Node Popup ── */
 .node-popup {
   position: fixed;
-  bottom: 110px;
+  bottom: 24px;
   left: 50%;
   transform: translateX(-50%) translateY(16px);
   z-index: 50;
