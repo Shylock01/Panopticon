@@ -143,29 +143,29 @@
 }
 
 :root[data-theme="brown-blue"] {
-  --bg:            #14110f;
-  --bg-mid:        #1d1815;
-  --surface:       rgba(45, 38, 34, 0.75);
-  --surface-hover: rgba(60, 50, 45, 0.85);
-  --border:        rgba(200, 173, 147, 0.15);
-  --border-bright: rgba(200, 173, 147, 0.3);
-  --accent:        #c8ad93;
-  --accent-glow:   rgba(200, 173, 147, 0.35);
-  --accent-dark:   #91745a;
-  --logo-filter:   hue-rotate(24deg) saturate(0.6) brightness(1.2);
+  --bg:            #0c0807;
+  --bg-mid:        #14100d;
+  --surface:       rgba(36, 24, 18, 0.75);
+  --surface-hover: rgba(50, 34, 26, 0.85);
+  --border:        rgba(97, 54, 40, 0.2);
+  --border-bright: rgba(120, 68, 50, 0.35);
+  --accent:        #613628;
+  --accent-glow:   rgba(97, 54, 40, 0.35);
+  --accent-dark:   #3d2018;
+  --logo-filter:   hue-rotate(160deg) saturate(0.8) brightness(0.9);
 }
 
 :root[data-theme="black-red"] {
-  --bg:            #020202;
-  --bg-mid:        #090909;
-  --surface:       rgba(22, 22, 22, 0.75);
-  --surface-hover: rgba(35, 35, 35, 0.85);
-  --border:        rgba(255, 255, 255, 0.08);
-  --border-bright: rgba(255, 255, 255, 0.2);
-  --accent:        #222222;
-  --accent-glow:   rgba(183, 20, 20, 0.35);
-  --accent-dark:   #111111;
-  --logo-filter:   grayscale(1) brightness(0.6);
+  --bg:            #020101;
+  --bg-mid:        #080404;
+  --surface:       rgba(20, 10, 10, 0.78);
+  --surface-hover: rgba(32, 16, 16, 0.88);
+  --border:        rgba(139, 26, 26, 0.2);
+  --border-bright: rgba(160, 30, 30, 0.35);
+  --accent:        #8b1a1a;
+  --accent-glow:   rgba(139, 26, 26, 0.4);
+  --accent-dark:   #5c1010;
+  --logo-filter:   hue-rotate(140deg) saturate(1.4) brightness(0.5);
 }
 
 

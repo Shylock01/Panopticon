@@ -258,12 +258,20 @@ class PanopticonSphere {
       const g = Math.round(color.g * 255);
       const b = Math.round(color.b * 255);
 
+      const theme = document.documentElement.getAttribute('data-theme') || 'blue';
+      const isBlackRed = (theme === 'black-red');
+
+      // For black-red, use dark red center colors instead of white to prevent additive blowout
+      const centerR = isBlackRed ? 80 : 255;
+      const centerG = isBlackRed ? 8 : 255;
+      const centerB = isBlackRed ? 8 : 255;
+
       // 1. Redraw Halo Canvas
       if (this._haloCtx) {
         this._haloCtx.clearRect(0, 0, 512, 512);
         const g1 = this._haloCtx.createRadialGradient(256, 256, 30, 256, 256, 256);
-        g1.addColorStop(0,    'rgba(255,255,255,0.95)'); // Pure white at the center
-        g1.addColorStop(0.18, 'rgba(255,255,255,0.75)'); // Soft white glow
+        g1.addColorStop(0,    `rgba(${centerR},${centerG},${centerB},0.95)`);
+        g1.addColorStop(0.18, `rgba(${centerR},${centerG},${centerB},0.75)`);
         g1.addColorStop(0.42, `rgba(${r},${g},${b},0.35)`); // Transition to theme color
         g1.addColorStop(0.70, `rgba(${r},${g},${b},0.12)`);
         g1.addColorStop(1,    `rgba(${r},${g},${b},0)`);
@@ -276,8 +284,8 @@ class PanopticonSphere {
       if (this._coronaCtx) {
         this._coronaCtx.clearRect(0, 0, 512, 512);
         const g2 = this._coronaCtx.createRadialGradient(256, 256, 0, 256, 256, 256); // Start at 0 to eliminate empty center
-        g2.addColorStop(0,    'rgba(255,255,255,0.95)'); // Pure white at the center
-        g2.addColorStop(0.50, 'rgba(255,255,255,0.65)'); // Smooth white glow
+        g2.addColorStop(0,    `rgba(${centerR},${centerG},${centerB},0.95)`);
+        g2.addColorStop(0.50, `rgba(${centerR},${centerG},${centerB},0.65)`);
         g2.addColorStop(0.72, `rgba(${r},${g},${b},0.45)`); // Transition to theme color
         g2.addColorStop(0.84, `rgba(${r},${g},${b},0.15)`);
         g2.addColorStop(1,    `rgba(${r},${g},${b},0)`);
@@ -1504,8 +1512,8 @@ class PanopticonSphere {
         'black-white': '#686868',
         'blue-gold': '#1243b5',
         'red-gold': '#b71414',
-        'brown-blue': '#c8ad93',
-        'black-red': '#222222'
+        'brown-blue': '#613628',
+        'black-red': '#0a0a0a'
       };
 
       const themeHex = THEME_ACCENTS[theme] || hex || '#1243b5';
@@ -1521,7 +1529,8 @@ class PanopticonSphere {
       } else if (theme === 'brown-blue') {
         coreAndInteriorColor = new THREE.Color('#1243b5');
       } else if (theme === 'black-red') {
-        coreAndInteriorColor = new THREE.Color('#b71414');
+        // Very dark red — additive blending will brighten this, so start extremely low
+        coreAndInteriorColor = new THREE.Color('#3a0000');
       }
 
       // Update global lights for shadow color
@@ -1560,13 +1569,22 @@ class PanopticonSphere {
 
       // 3b. Sphere interior color
       if (this._sphereInteriorMesh && this._sphereInteriorMesh.material) {
-        const lightColor = coreAndInteriorColor.clone().lerp(new THREE.Color(0xffffff), 0.4);
-        this._sphereInteriorMesh.material.color.copy(lightColor);
+        if (theme === 'black-red') {
+          // Dark red-tinted interior instead of lightened version
+          this._sphereInteriorMesh.material.color.set('#4a1010');
+        } else {
+          const lightColor = coreAndInteriorColor.clone().lerp(new THREE.Color(0xffffff), 0.4);
+          this._sphereInteriorMesh.material.color.copy(lightColor);
+        }
       }
       
-      // 4. Edges
+      // 4. Edges — for black-red, use dark red outlines instead of the near-black sphere color
       if (this._edgeLines && this._edgeLines.material && this._edgeLines.material.uniforms && this._edgeLines.material.uniforms.uColor) {
-        this._edgeLines.material.uniforms.uColor.value.copy(color);
+        if (theme === 'black-red') {
+          this._edgeLines.material.uniforms.uColor.value.set('#5c1010');
+        } else {
+          this._edgeLines.material.uniforms.uColor.value.copy(color);
+        }
       }
 
       // 6. Halo and Corona Canvas Dynamic Gradient Re-draw
@@ -1585,10 +1603,21 @@ class PanopticonSphere {
       // 8. Core dynamic colors
       if (this._coreUniforms) {
         if (this._coreUniforms.uDarkColor && this._coreUniforms.uDarkColor.value) {
-          this._coreUniforms.uDarkColor.value.copy(coreAndInteriorColor).multiplyScalar(0.015);
+          if (theme === 'black-red') {
+            // Visible dark-red base so the dark regions still read as red
+            this._coreUniforms.uDarkColor.value.set('#0d0000');
+          } else {
+            this._coreUniforms.uDarkColor.value.copy(coreAndInteriorColor).multiplyScalar(0.015);
+          }
         }
         if (this._coreUniforms.uLightColor && this._coreUniforms.uLightColor.value) {
-          this._coreAndLightColor = coreAndInteriorColor.clone().lerp(new THREE.Color(0xffffff), 0.4);
+          if (theme === 'black-red') {
+            // NO white blend at all — keep the light color as a pure dark red
+            // Additive blending will naturally brighten it; starting dark keeps it blood-red
+            this._coreAndLightColor = new THREE.Color('#4a0000');
+          } else {
+            this._coreAndLightColor = coreAndInteriorColor.clone().lerp(new THREE.Color(0xffffff), 0.4);
+          }
           this._coreUniforms.uLightColor.value.copy(this._coreAndLightColor);
         }
       }
@@ -1596,10 +1625,22 @@ class PanopticonSphere {
       // 9. Core outer glow
       if (this._coreGlowMesh && this._coreGlowMesh.material && this._coreGlowMesh.material.uniforms) {
         if (this._coreGlowMesh.material.uniforms.uGlowColor && this._coreGlowMesh.material.uniforms.uGlowColor.value) {
-          this._coreGlowMesh.material.uniforms.uGlowColor.value.copy(coreAndInteriorColor);
+          if (theme === 'black-red') {
+            this._coreGlowMesh.material.uniforms.uGlowColor.value.set('#2a0000');
+          } else {
+            this._coreGlowMesh.material.uniforms.uGlowColor.value.copy(coreAndInteriorColor);
+          }
         }
         if (this._coreGlowMesh.material.uniforms.uCenterColor && this._coreGlowMesh.material.uniforms.uCenterColor.value) {
-          this._coreGlowMesh.material.uniforms.uCenterColor.value.copy(coreAndInteriorColor).lerp(new THREE.Color(0xffffff), 0.4);
+          if (theme === 'black-red') {
+            this._coreGlowMesh.material.uniforms.uCenterColor.value.set('#3a0000');
+          } else {
+            this._coreGlowMesh.material.uniforms.uCenterColor.value.copy(coreAndInteriorColor).lerp(new THREE.Color(0xffffff), 0.4);
+          }
+        }
+        // Pull down the glow intensity for black-red to prevent additive blowout
+        if (this._coreGlowMesh.material.uniforms.uGlowMultiplier) {
+          this._coreGlowMesh.material.uniforms.uGlowMultiplier.value = (theme === 'black-red') ? 0.3 : 0.8;
         }
       }
     } catch (err) {
