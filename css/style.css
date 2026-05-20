@@ -30,6 +30,7 @@
   --shadow-glow:   0 0 24px var(--accent-glow);
   --transition:    0.22s cubic-bezier(0.4, 0, 0.2, 1);
   --font:          'Inter', system-ui, -apple-system, sans-serif;
+  --logo-filter:   none;
 }
 
 /* ── Theme Definitions ── */
@@ -47,6 +48,7 @@
   --text-secondary:#4b5563;
   --text-dim:      #6b7280;
   --shadow-glass:  0 8px 32px rgba(0,0,20,0.1), 0 0 0 1px var(--border);
+  --logo-filter:   none; /* Keep default blue logo for white mode */
 }
 
 :root[data-theme="red"] {
@@ -59,6 +61,7 @@
   --accent:        #b71414;
   --accent-glow:   rgba(183, 20, 20, 0.35);
   --accent-dark:   #7d0a0a;
+  --logo-filter:   hue-rotate(140deg) saturate(1.2);
 }
 
 :root[data-theme="green"] {
@@ -71,6 +74,7 @@
   --accent:        #1ab256;
   --accent-glow:   rgba(26, 178, 86, 0.35);
   --accent-dark:   #117036;
+  --logo-filter:   hue-rotate(284deg) saturate(1.2);
 }
 
 :root[data-theme="purple"] {
@@ -83,6 +87,7 @@
   --accent:        #6c25be;
   --accent-glow:   rgba(108, 37, 190, 0.35);
   --accent-dark:   #471580;
+  --logo-filter:   hue-rotate(48deg) saturate(1.2);
 }
 
 :root[data-theme="gold"] {
@@ -95,6 +100,7 @@
   --accent:        #bc800f;
   --accent-glow:   rgba(188, 128, 15, 0.35);
   --accent-dark:   #7d5306;
+  --logo-filter:   hue-rotate(180deg) saturate(1.3) brightness(0.95);
 }
 
 :root[data-theme="black-white"] {
@@ -107,6 +113,7 @@
   --accent:        #686868;
   --accent-glow:   rgba(104, 104, 104, 0.35);
   --accent-dark:   #404040;
+  --logo-filter:   grayscale(1) brightness(0.8) opacity(0.8);
 }
 
 /* ── Theme Selector ── */
@@ -234,7 +241,7 @@ body {
   width: 26px;
   height: 26px;
   object-fit: contain;
-  filter: drop-shadow(0 0 8px var(--accent-glow));
+  filter: var(--logo-filter) drop-shadow(0 0 8px var(--accent-glow));
   animation: logoPulse 4s ease-in-out infinite;
   pointer-events: none;
 }
@@ -248,12 +255,12 @@ body {
   width: 48px;
   height: 48px;
   object-fit: contain;
-  filter: drop-shadow(0 0 12px var(--accent-glow));
+  filter: var(--logo-filter) drop-shadow(0 0 12px var(--accent-glow));
 }
 
 @keyframes logoPulse {
-  0%, 100% { opacity: 1; filter: drop-shadow(0 0 8px var(--accent-glow)); }
-  50%       { opacity: 0.75; filter: drop-shadow(0 0 16px var(--accent-glow)); }
+  0%, 100% { opacity: 1; filter: var(--logo-filter) drop-shadow(0 0 8px var(--accent-glow)); }
+  50%       { opacity: 0.75; filter: var(--logo-filter) drop-shadow(0 0 16px var(--accent-glow)); }
 }
 
 .icon-btn {

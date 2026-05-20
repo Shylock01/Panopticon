@@ -357,7 +357,8 @@ class PanopticonSphere {
         vec3 faceNormal = normalize(aCentroid);
         vec3 camDir = normalize(uCameraPos);
         float dotCam = dot(faceNormal, camDir);
-        float t = clamp((dotCam - 0.76) / 0.24, 0.0, 1.0);
+        // Start the resizing falloff 10% sooner (from 0.66 instead of 0.76) for a more gradual opening effect
+        float t = clamp((dotCam - 0.66) / 0.34, 0.0, 1.0);
         float scale = 1.0 - pow(t, 4.0);
         
         vec3 localPos = position - aCentroid;
@@ -390,7 +391,8 @@ class PanopticonSphere {
         vec3 faceNormal = normalize(aCentroid);
         vec3 camDir = normalize(uCameraPos);
         float dotCam = dot(faceNormal, camDir);
-        float t = clamp((dotCam - 0.76) / 0.24, 0.0, 1.0);
+        // Start the resizing falloff 10% sooner (from 0.66 instead of 0.76) for a more gradual opening effect
+        float t = clamp((dotCam - 0.66) / 0.34, 0.0, 1.0);
         float scale = 1.0 - pow(t, 4.0);
         
         vec3 localPos = position - aCentroid;
@@ -461,7 +463,8 @@ class PanopticonSphere {
           vec3 faceNormal = normalize(aCentroid);
           vec3 camDir = normalize(uCameraPos);
           float dotCam = dot(faceNormal, camDir);
-          float t = clamp((dotCam - 0.76) / 0.24, 0.0, 1.0);
+          // Start the resizing falloff 10% sooner (from 0.66 instead of 0.76) for a more gradual opening effect
+          float t = clamp((dotCam - 0.66) / 0.34, 0.0, 1.0);
           float scale = 1.0 - pow(t, 4.0);
           vScale = scale;
           vec3 localPos = position - aCentroid;
