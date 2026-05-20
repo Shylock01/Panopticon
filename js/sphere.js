@@ -743,12 +743,14 @@ class PanopticonSphere {
       vertexShader: `
         uniform float uTime;
         varying vec3 vNormal;
+        varying vec3 vLocalNormal;
         varying vec3 vViewPosition;
         varying float vNoise;
 
         void main() {
           vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
           vNormal = normalize(normalMatrix * normal);
+          vLocalNormal = normal; // Pass local normal to lock the gradient to the center of the app shell
           vViewPosition = -mvPosition.xyz;
 
           // Warp coordinate lookup with dynamic low-frequency sines to add natural organic swirling distortion
@@ -773,6 +775,7 @@ class PanopticonSphere {
       `,
       fragmentShader: `
         varying vec3 vNormal;
+        varying vec3 vLocalNormal;
         varying vec3 vViewPosition;
         varying float vNoise;
         uniform float uTime;
@@ -781,26 +784,24 @@ class PanopticonSphere {
         uniform vec3 uThemeColor;
 
         void main() {
-          vec3 normal = normalize(vNormal);
-          vec3 viewDir = normalize(vViewPosition);
-
           float activeProgress = max(uHoverProgress, uFocusedProgress);
           if (activeProgress < 0.001) {
             discard;
           }
 
-          // Soft spherical glow falloff
-          float rim = max(0.0, dot(normal, viewDir));
+          // Use the local normal's Z component for a perfectly centered, camera-independent radial gradient
+          float rim = max(0.0, normalize(vLocalNormal).z);
 
           // Base highlight color: white for hover, uThemeColor for focus/background
           vec3 targetColor = mix(vec3(1.0, 1.0, 1.0), uThemeColor, uFocusedProgress);
 
           // Volumetric noise-based inner core coloring for glowing organic energy feel
           float noiseFactor = smoothstep(-0.008, 0.012, vNoise);
-          vec3 baseColor = mix(targetColor * 0.6, targetColor * 1.4, noiseFactor);
+          // Reduced contrast between dark and light for a softer, more subtle bubbling effect
+          vec3 baseColor = mix(targetColor * 0.85, targetColor * 1.0, noiseFactor);
 
-          // Soft fading edge
-          float alpha = smoothstep(0.0, 0.45, rim) * 0.85 * activeProgress;
+          // Spread the gradient across the ENTIRE sphere so it stays massive and soft
+          float alpha = smoothstep(0.0, 1.0, rim) * 0.85 * activeProgress;
 
           if (alpha < 0.01) {
             discard;
@@ -814,9 +815,10 @@ class PanopticonSphere {
       blending: THREE.AdditiveBlending,
       side: THREE.DoubleSide
     });
-    const rippleMesh = new THREE.Mesh(rippleGeo, rippleMat);
-    rippleMesh.scale.set(1.0, 1.0, 0.14); // Squash it along Z to fit perfectly inside the thin shell
-    rippleMesh.position.set(0, 0, 0); // Centered symmetrically (apex bounds: z = -0.0213 to +0.0213)
+    // Increased the sphere radius from 0.95 to 1.1 so it creates a nice halo peeking out from solid icons
+    const rippleMesh = new THREE.Mesh(new THREE.SphereGeometry(NODE_R * 1.1, 32, 16), rippleMat);
+    rippleMesh.scale.set(1.0, 1.0, 0.14); // Squash it slightly to form a neat bubble
+    rippleMesh.position.set(0, 0, 0.024); // Placed exactly on the front face of the squircle shell
 
     const nodeGroup = new THREE.Group();
     // Add components to nodeGroup
@@ -841,9 +843,9 @@ class PanopticonSphere {
 
     // Assign explicit rendering orders to guarantee correct layer sorting:
     glow.renderOrder = 8;
-    rippleMesh.renderOrder = 9;
     shellMesh.renderOrder = 10;
-    logoMesh.renderOrder = 11;
+    rippleMesh.renderOrder = 11; // Drawn ON TOP of the shell, so it isn't hidden by the background blur
+    logoMesh.renderOrder = 12;   // Drawn ON TOP of the ripple sphere
 
     // Position nodeGroup slightly away from center
     nodeGroup.position.copy(normal.clone().multiplyScalar(SPHERE_RADIUS + 0.03));
