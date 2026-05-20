@@ -11,7 +11,7 @@ const CAM_RADIUS    = 7.2;    // Camera distance from origin
 const DRAG_SENS     = 0.007;  // Radians per pixel dragged
 const INERTIA_DAMP  = 0.88;   // Velocity decay per frame
 const IDLE_ROT      = 0.0004; // Radians/frame idle rotation (reduced by 50%)
-const NODE_R        = 0.20;  // Badge radius (circle)
+const NODE_R        = 0.16;  // Badge radius (circle, reduced by 20%)
 const NODE_H        = 0.065; // Badge thickness
 const BEVEL_TUBE    = 0.013; // Bevel torus tube radius
 const HOVER_SCALE   = 1.12;  // Subtle scale-up on hover
@@ -117,6 +117,13 @@ class PanopticonSphere {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(w, h, false);
     this.renderer.setClearColor(0x000000, 0);
+
+    // Offscreen render target to capture and blur glowing background components
+    this.blurTarget = new THREE.WebGLRenderTarget(w / 4, h / 4, {
+      minFilter: THREE.LinearFilter,
+      magFilter: THREE.LinearFilter,
+      format: THREE.RGBAFormat
+    });
 
     this.scene  = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(52, w / h, 0.1, 200);
@@ -545,7 +552,7 @@ class PanopticonSphere {
     const ctx = c.getContext('2d');
     const tex = new THREE.CanvasTexture(c);
     const img = new Image();
-    if (iconDataUrl && !iconDataUrl.startsWith('data:')) {
+    if (iconDataUrl && (iconDataUrl.startsWith('http://') || iconDataUrl.startsWith('https://'))) {
       img.crossOrigin = "anonymous";
     }
     img.onload = () => {
@@ -580,42 +587,151 @@ class PanopticonSphere {
     const slotPos = this._slotPositions[slot % this._slotPositions.length];
     const normal  = slotPos.clone().normalize();
 
+    // App Icon: The logo icon representing the individual app, loaded as a circular canvas texture
     const iconTex = this._circularTexture(appEntry.iconDataUrl);
     
-    // Oblate Glass Spheroid: squashed along local Z-axis (thickness 0.14)
-    const glassGeo = new THREE.SphereGeometry(NODE_R, 32, 32);
-    glassGeo.scale(1, 1, 0.35);
-    const glassMat = new THREE.MeshPhysicalMaterial({
-      color: 0xffffff,
-      metalness: 0.0,
-      roughness: 0.85,             // extremely matte frosted glass look
-      opacity: 0.65,               // translucent frosted glass
-      transparent: true,
-      clearcoat: 0.0,              // remove shiny coat completely for a true matte texture
-      specularIntensity: 0.0,      // remove specular highlights completely
-      reflectivity: 0.0,           // zero reflectivity for a non-reflective matte appearance
-      ior: 1.0,                    // index of refraction 1.0 (no distortion/specular reflections)
-      envMapIntensity: 0.0,        // zero environment mapping reflections
-      depthWrite: false            // disable depth writing to avoid sorting and clipping bugs with the logo plane
-    });
-    const glassBody = new THREE.Mesh(glassGeo, glassMat);
-    glassBody.userData = { appEntry, slot }; // Store metadata for raycasting
+    // --- 3D App Shell Construction (Tactile Squircle with Physical Glass Blur) ---
+    // The App Shell is the 3D squircle that sits on the sphere representing each linked app.
+    // It is a dark, premium frosted glassmorphic squircle with rounded corners and beveled edges.
     
-    const disc = glassBody; // Backwards compatible mapping for raycaster boundary
+    // 1. Create beveled squircle 2D shape & 3D geometry
+    const w = NODE_R * 2.0;
+    const h = NODE_R * 2.0;
+    const radius = NODE_R * 0.45; // Smooth corner radius (iOS squircle aesthetic)
+    const shape = new THREE.Shape();
+    
+    // Centered rounded rectangle path coordinates
+    const x0 = -w / 2;
+    const y0 = -h / 2;
+    shape.moveTo(x0, y0 + radius);
+    shape.lineTo(x0, y0 + h - radius);
+    shape.quadraticCurveTo(x0, y0 + h, x0 + radius, y0 + h);
+    shape.lineTo(x0 + w - radius, y0 + h);
+    shape.quadraticCurveTo(x0 + w, y0 + h, x0 + w, y0 + h - radius);
+    shape.lineTo(x0 + w, y0 + radius);
+    shape.quadraticCurveTo(x0 + w, y0, x0 + w - radius, y0);
+    shape.lineTo(x0 + radius, y0);
+    shape.quadraticCurveTo(x0, y0, x0, y0 + radius);
+    
+    // Extrusion settings, scaled down 20% along with NODE_R for perfect depth proportions
+    const extrudeSettings = {
+      depth: 0.02,             // Shortened by 50%
+      bevelEnabled: true,      // Rounded front/back edges
+      bevelSegments: 6,        // Premium high-fidelity rounding
+      steps: 1,
+      bevelSize: 0.014,        // Shortened by 50%
+      bevelThickness: 0.014,   // Shortened by 50%
+      curveSegments: 24        // Extremely smooth corner curvature
+    };
+    
+    const squircleGeo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+    squircleGeo.center();      // Center geometry around (0,0,0)
+    
+    // 2. High-end glassmorphic physical dark shader material
+    // Overriding standard transmission to blur transparent grid lines/glowing core
+    const shellMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uBlurTexture: { value: this.blurTarget ? this.blurTarget.texture : null },
+        uColor: { value: new THREE.Color(0x000000) },
+        uRoughness: { value: 0.6 },
+        uMetalness: { value: 0.1 },
+        uOpacity: { value: 0.8 }
+      },
+      vertexShader: `
+        varying vec4 vScreenPos;
+        varying vec3 vNormal;
+        varying vec3 vViewPosition;
 
-    // Suspended Flat Logo Plane (positioned exactly on the front surface of the frosted glass spheroid)
-    const logoGeo = new THREE.PlaneGeometry(NODE_R * 1.55, NODE_R * 1.55);
+        void main() {
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          vViewPosition = -mvPosition.xyz;
+          vNormal = normalize(normalMatrix * normal);
+          vScreenPos = projectionMatrix * mvPosition;
+          gl_Position = vScreenPos;
+        }
+      `,
+      fragmentShader: `
+        varying vec4 vScreenPos;
+        varying vec3 vNormal;
+        varying vec3 vViewPosition;
+
+        uniform sampler2D uBlurTexture;
+        uniform vec3 uColor;
+        uniform float uRoughness;
+        uniform float uMetalness;
+        uniform float uOpacity;
+
+        void main() {
+          // Calculate screen-space coordinates
+          vec2 screenUv = (vScreenPos.xy / vScreenPos.w) * 0.5 + 0.5;
+
+          // Add realistic screen-space refraction based on normal vector
+          vec3 normal = normalize(vNormal);
+          vec3 viewDir = normalize(vViewPosition);
+          vec2 offset = normal.xy * 0.032; // Glass refractive distortion factor
+
+          // Multi-tap weighted blur kernel to achieve silky-smooth frosting
+          vec4 blurredSample = vec4(0.0);
+          float totalWeight = 0.0;
+          const int blurRadius = 2;
+          const float stepSize = 0.0035;
+
+          for (int x = -blurRadius; x <= blurRadius; x++) {
+            for (int y = -blurRadius; y <= blurRadius; y++) {
+              float weight = 1.0 - (length(vec2(x, y)) / (float(blurRadius) + 1.0));
+              vec2 sampleUv = screenUv + offset + vec2(float(x), float(y)) * stepSize;
+              
+              sampleUv = clamp(sampleUv, 0.001, 0.999);
+              blurredSample += texture2D(uBlurTexture, sampleUv) * weight;
+              totalWeight += weight;
+            }
+          }
+          blurredSample /= totalWeight;
+
+          // Tint and Blend (Black color at 0.8 opacity)
+          vec3 finalRgb = mix(blurredSample.rgb, uColor, uOpacity);
+          float finalAlpha = max(uOpacity, blurredSample.a * uOpacity);
+
+          // Blinn-Phong Specular Reflection for the premium tactile satin-matte look
+          vec3 lightDir = normalize(vec3(-3.0, 5.0, 3.0));
+          vec3 halfDir = normalize(lightDir + viewDir);
+
+          float specPower = mix(120.0, 6.0, uRoughness);
+          float specIntensity = mix(0.15, 0.75, uMetalness);
+          float spec = pow(max(dot(normal, halfDir), 0.0), specPower) * specIntensity;
+
+          finalRgb += vec3(spec);
+
+          gl_FragColor = vec4(finalRgb, finalAlpha);
+        }
+      `,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide
+    });
+
+    const shellMesh = new THREE.Mesh(squircleGeo, shellMat);
+    shellMesh.userData = { appEntry, slot }; // For raycaster hit metadata mapping
+    
+    // Backwards compatible reference so we don't break raycaster:
+    const disc = shellMesh;
+
+    // 3. Suspended Flat Logo Plane (App Icon) sitting perfectly on the front face of the squircle
+    // Sized slightly smaller than the squircle shell for an elegant inset
+    const logoGeo = new THREE.PlaneGeometry(NODE_R * 1.8, NODE_R * 1.8);
     const logoMat = new THREE.MeshBasicMaterial({
       map: iconTex,
       transparent: true,
       depthWrite: false
     });
     const logoMesh = new THREE.Mesh(logoGeo, logoMat);
-    logoMesh.position.z = 0.072; // Placed slightly in front of the spheroid apex (0.07) for perfect sharpness and rendering visibility
+    // Positioned flat on the front of the beveled squircle (depth/2 + bevel = 0.01 + 0.014 = 0.024)
+    // Placed at z = 0.026 to sit exactly 0.002 units in front of the beveled face, staying sharp and legible
+    logoMesh.position.z = 0.026;
     
-    const iconMat = logoMat; // Backwards compatible mapping for dynamic icon canvas updates
+    const iconMat = logoMat; // Backwards compatible mapping
 
-    // Custom organic bubbling/rippling outline Shader Material
+    // 4. Custom organic bubbling/rippling outline Shader Material (matching the squircle contour)
     const rippleGeo = new THREE.PlaneGeometry(NODE_R * 2.6, NODE_R * 2.6);
     const rippleMat = new THREE.ShaderMaterial({
       uniforms: {
@@ -638,30 +754,33 @@ class PanopticonSphere {
         uniform float uFocusedProgress;
         uniform vec3 uThemeColor;
 
+        // Signed Distance Function for a rounded box/squircle in UV coordinates
+        float sdRoundedBox(in vec2 p, in vec2 b, in float r) {
+          vec2 q = abs(p) - b + r;
+          return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r;
+        }
+
         void main() {
-          vec2 uv = vUv - 0.5;
-          float dist = length(uv);
-          float angle = atan(uv.y, uv.x);
+          vec2 p = vUv - 0.5;
+          float angle = atan(p.y, p.x);
 
           float activeProgress = max(uHoverProgress, uFocusedProgress);
           if (activeProgress < 0.001) {
             discard;
           }
 
-          // Dynamic wave interference equations for organic, bubbling ripple shapes
+          // Dynamic wave interference for organic, bubbling ripple shapes
           float wave1 = sin(angle * 5.0 - uTime * 3.5) * 0.025;
           float wave2 = cos(angle * 8.0 + uTime * 2.2) * 0.012;
           float displacement = wave1 + wave2;
 
-          float rWarped = dist + displacement;
+          // Compute warped distance to the squircle boundary
+          // b = vec2(0.385, 0.385) aligns perfectly with the outer edge of the squircle
+          float dist = sdRoundedBox(p, vec2(0.385, 0.385), 0.09);
+          float warpedDist = dist + displacement;
 
-          // Define centered soft ring halo profile (just outside glass sphere edge at 0.385 UV distance)
-          float rCenter = 0.39;
-          float rThickness = 0.085;
-
-          // Soft bell curve halo
-          float intensity = smoothstep(rCenter - rThickness, rCenter, rWarped) *
-                            smoothstep(rCenter + rThickness, rCenter, rWarped);
+          // Soft bell curve halo around the boundary (thickness of 0.08)
+          float intensity = smoothstep(0.085, 0.0, abs(warpedDist));
 
           // LERP between White (hover) and Active Theme Color (focus/background)
           vec3 finalColor = mix(vec3(1.0, 1.0, 1.0), uThemeColor, uFocusedProgress);
@@ -682,14 +801,13 @@ class PanopticonSphere {
       blending: THREE.NormalBlending
     });
     const rippleMesh = new THREE.Mesh(rippleGeo, rippleMat);
-    rippleMesh.position.z = -0.015; // Set slightly behind glass spheroid body
+    rippleMesh.position.z = -0.008; // Set slightly behind squircle body
 
     const nodeGroup = new THREE.Group();
-    nodeGroup.add(disc, logoMesh, rippleMesh);
+    // Add components to nodeGroup
+    nodeGroup.add(shellMesh, logoMesh, rippleMesh);
 
-    // Outer glow plane — locked to node orientation (NOT a billboard sprite).
-    // PlaneGeometry inherits nodeGroup rotation so it stays flat on the sphere
-    // surface rather than always facing the camera and clipping through it.
+    // Outer glow plane — locked to node orientation
     const glowMat = new THREE.MeshBasicMaterial({
       map: this._glowTex,
       color: this._accentColor.clone(),
@@ -703,18 +821,17 @@ class PanopticonSphere {
       glowMat
     );
     glow.scale.set(NODE_R * 3.5, NODE_R * 3.5, 1);
-    glow.position.z = -0.02; // slightly behind the disc face
+    glow.position.z = -0.010; // slightly behind the back face
     nodeGroup.add(glow);
 
     // Assign explicit rendering orders to guarantee correct layer sorting:
-    // glow (8) -> ripple (9) -> glassBody (10) -> logoMesh (11)
     glow.renderOrder = 8;
     rippleMesh.renderOrder = 9;
-    glassBody.renderOrder = 10;
+    shellMesh.renderOrder = 10;
     logoMesh.renderOrder = 11;
 
-    // Position nodeGroup slightly away from center, factoring in the 0.07 local Z offset of the squashed spheroid
-    nodeGroup.position.copy(normal.clone().multiplyScalar(SPHERE_RADIUS + 0.13));
+    // Position nodeGroup slightly away from center
+    nodeGroup.position.copy(normal.clone().multiplyScalar(SPHERE_RADIUS + 0.03));
     nodeGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
 
     this.group.add(nodeGroup);
@@ -736,9 +853,13 @@ class PanopticonSphere {
     const entry = this.nodes.get(repoName);
     if (!entry) return;
     this.group.remove(entry.nodeGroup);
+    const disposedGeos = new Set();
     entry.nodeGroup.traverse(child => {
       if (child.isMesh) {
-        child.geometry.dispose();
+        if (child.geometry && !disposedGeos.has(child.geometry)) {
+          child.geometry.dispose();
+          disposedGeos.add(child.geometry);
+        }
         const mats = Array.isArray(child.material) ? child.material : [child.material];
         mats.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
       }
@@ -821,6 +942,9 @@ class PanopticonSphere {
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h, false);
+    if (this.blurTarget) {
+      this.blurTarget.setSize(w / 4, h / 4);
+    }
   }
 
   _down(x, y) {
@@ -1077,6 +1201,25 @@ class PanopticonSphere {
       }
     });
 
+    // 1. Temporarily hide app node groups to draw background components alone
+    this.nodes.forEach(node => {
+      node.nodeGroup.visible = false;
+    });
+
+    // 2. Render background to downscaled offscreen buffer
+    if (this.blurTarget) {
+      this.renderer.setRenderTarget(this.blurTarget);
+      this.renderer.clear();
+      this.renderer.render(this.scene, this.camera);
+      this.renderer.setRenderTarget(null);
+    }
+
+    // 3. Make node groups visible again
+    this.nodes.forEach(node => {
+      node.nodeGroup.visible = true;
+    });
+
+    // 4. Render the full interactive scene with blurred dark squircles
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -1385,6 +1528,9 @@ class PanopticonSphere {
     window.removeEventListener('mouseup',   this._upBound);
     window.removeEventListener('resize',    this._resizeBound);
 
+    if (this.blurTarget) {
+      this.blurTarget.dispose();
+    }
     this.renderer.dispose();
     this.scene.traverse(child => {
       if (child.isMesh || child.isLine || child.isSprite) {
