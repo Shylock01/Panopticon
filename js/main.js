@@ -509,6 +509,12 @@
 
   // ─── Node popup ───────────────────────────────────────────────────────────
   async function showNodePopup(appEntry) {
+    if (!appEntry) {
+      if (activePopupApp) {
+        hideNodePopup();
+      }
+      return;
+    }
     activePopupApp = appEntry;
     popupIcon.src = appEntry.iconDataUrl;
     popupIcon.alt = appEntry.repoName;

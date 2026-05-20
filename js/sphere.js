@@ -311,7 +311,21 @@ class PanopticonSphere {
 
     const posAttr = nonIndexedGeo.attributes.position;
     const count = posAttr.count;
-    const centroids = new Float32Array(count * 3);
+
+    // We will extrude each triangle into a 3D prism.
+    // Outer/side faces: 1 outer triangle + 3 side quads (6 triangles) = 7 triangles per original triangle.
+    const outerCount = (count / 3) * 21;
+    const outerVertices = new Float32Array(outerCount * 3);
+    const outerCentroids = new Float32Array(outerCount * 3);
+
+    // Inner back face: 1 triangle per original triangle.
+    const backVertices = new Float32Array(count * 3);
+    const backCentroids = new Float32Array(count * 3);
+
+    const THICKNESS = 0.04; // 0.04 units thickness for a beautifully defined solid panel look
+
+    let outerIdx = 0;
+    let backIdx = 0;
 
     for (let i = 0; i < count; i += 3) {
       const x0 = posAttr.getX(i), y0 = posAttr.getY(i), z0 = posAttr.getZ(i);
@@ -322,15 +336,90 @@ class PanopticonSphere {
       const cy = (y0 + y1 + y2) / 3;
       const cz = (z0 + z1 + z2) / 3;
 
-      for (let j = 0; j < 3; j++) {
-        const idx = (i + j) * 3;
-        centroids[idx]     = cx;
-        centroids[idx + 1] = cy;
-        centroids[idx + 2] = cz;
-      }
+      // Calculate the radial face normal (outward from the sphere center)
+      const len = Math.sqrt(cx*cx + cy*cy + cz*cz);
+      const ndx = cx / len;
+      const ndy = cy / len;
+      const ndz = cz / len;
+
+      // Inner vertices (extruded inward along the normal)
+      const ix0 = x0 - ndx * THICKNESS, iy0 = y0 - ndy * THICKNESS, iz0 = z0 - ndz * THICKNESS;
+      const ix1 = x1 - ndx * THICKNESS, iy1 = y1 - ndy * THICKNESS, iz1 = z1 - ndz * THICKNESS;
+      const ix2 = x2 - ndx * THICKNESS, iy2 = y2 - ndy * THICKNESS, iz2 = z2 - ndz * THICKNESS;
+
+      // Helper to push vertex coordinates and matching centroids to the outer/side buffer arrays
+      const pushOuterVert = (vx, vy, vz) => {
+        outerVertices[outerIdx]     = vx;
+        outerVertices[outerIdx + 1] = vy;
+        outerVertices[outerIdx + 2] = vz;
+
+        outerCentroids[outerIdx]     = cx;
+        outerCentroids[outerIdx + 1] = cy;
+        outerCentroids[outerIdx + 2] = cz;
+
+        outerIdx += 3;
+      };
+
+      // 1. Front/Outer Face (Wound counter-clockwise facing outwards)
+      pushOuterVert(x0, y0, z0);
+      pushOuterVert(x1, y1, z1);
+      pushOuterVert(x2, y2, z2);
+
+      // 2. Side Quad 0 (between v0 and v1)
+      pushOuterVert(x0, y0, z0);
+      pushOuterVert(ix0, iy0, iz0);
+      pushOuterVert(x1, y1, z1);
+
+      pushOuterVert(x1, y1, z1);
+      pushOuterVert(ix0, iy0, iz0);
+      pushOuterVert(ix1, iy1, iz1);
+
+      // 3. Side Quad 1 (between v1 and v2)
+      pushOuterVert(x1, y1, z1);
+      pushOuterVert(ix1, iy1, iz1);
+      pushOuterVert(x2, y2, z2);
+
+      pushOuterVert(x2, y2, z2);
+      pushOuterVert(ix1, iy1, iz1);
+      pushOuterVert(ix2, iy2, iz2);
+
+      // 4. Side Quad 2 (between v2 and v0)
+      pushOuterVert(x2, y2, z2);
+      pushOuterVert(ix2, iy2, iz2);
+      pushOuterVert(x0, y0, z0);
+
+      pushOuterVert(x0, y0, z0);
+      pushOuterVert(ix2, iy2, iz2);
+      pushOuterVert(ix0, iy0, iz0);
+
+      // Helper to push vertex coordinates and matching centroids to the back/interior buffer arrays
+      const pushBackVert = (vx, vy, vz) => {
+        backVertices[backIdx]     = vx;
+        backVertices[backIdx + 1] = vy;
+        backVertices[backIdx + 2] = vz;
+
+        backCentroids[backIdx]     = cx;
+        backCentroids[backIdx + 1] = cy;
+        backCentroids[backIdx + 2] = cz;
+
+        backIdx += 3;
+      };
+
+      // 5. Back/Inner Face (Wound same as original to render correctly with THREE.BackSide)
+      pushBackVert(ix0, iy0, iz0);
+      pushBackVert(ix1, iy1, iz1);
+      pushBackVert(ix2, iy2, iz2);
     }
 
-    nonIndexedGeo.setAttribute('aCentroid', new THREE.BufferAttribute(centroids, 3));
+    const prismOuterGeo = new THREE.BufferGeometry();
+    prismOuterGeo.setAttribute('position', new THREE.BufferAttribute(outerVertices, 3));
+    prismOuterGeo.setAttribute('aCentroid', new THREE.BufferAttribute(outerCentroids, 3));
+    prismOuterGeo.computeVertexNormals();
+
+    const prismBackGeo = new THREE.BufferGeometry();
+    prismBackGeo.setAttribute('position', new THREE.BufferAttribute(backVertices, 3));
+    prismBackGeo.setAttribute('aCentroid', new THREE.BufferAttribute(backCentroids, 3));
+    prismBackGeo.computeVertexNormals();
 
     const mat = new THREE.MeshStandardMaterial({
       color:    this._accentColor.clone().multiplyScalar(1.0),
@@ -340,16 +429,35 @@ class PanopticonSphere {
     });
 
     this._sphereUniforms = {
-      uCameraPos: { value: new THREE.Vector3() }
+      uCameraPos: { value: new THREE.Vector3() },
+      uPulseTime: { value: 0 },
+      uPulseStartTime: { value: 0 },
+      uPulseOrigin: { value: new THREE.Vector3(0, 1, 0) },
+      uPulseActive: { value: 0.0 }
     };
 
     mat.onBeforeCompile = (shader) => {
       shader.uniforms.uCameraPos = this._sphereUniforms.uCameraPos;
+      shader.uniforms.uPulseTime = this._sphereUniforms.uPulseTime;
+      shader.uniforms.uPulseStartTime = this._sphereUniforms.uPulseStartTime;
+      shader.uniforms.uPulseOrigin = this._sphereUniforms.uPulseOrigin;
+      shader.uniforms.uPulseActive = this._sphereUniforms.uPulseActive;
 
       shader.vertexShader = `
         attribute vec3 aCentroid;
         uniform vec3 uCameraPos;
+        uniform float uPulseTime;
+        uniform float uPulseStartTime;
+        uniform vec3 uPulseOrigin;
+        uniform float uPulseActive;
       ` + shader.vertexShader;
+
+      shader.vertexShader = shader.vertexShader.replace(
+        '#include <beginnormal_vertex>',
+        `
+        vec3 objectNormal = normalize(aCentroid);
+        `
+      );
 
       shader.vertexShader = shader.vertexShader.replace(
         '#include <begin_vertex>',
@@ -357,17 +465,42 @@ class PanopticonSphere {
         vec3 faceNormal = normalize(aCentroid);
         vec3 camDir = normalize(uCameraPos);
         float dotCam = dot(faceNormal, camDir);
-        // Start the resizing falloff 10% sooner (from 0.66 instead of 0.76) for a more gradual opening effect
-        float t = clamp((dotCam - 0.66) / 0.34, 0.0, 1.0);
+        // Start the resizing falloff earlier (from 0.50 instead of 0.66) for a more gradual opening effect
+        float t = clamp((dotCam - 0.50) / 0.50, 0.0, 1.0);
         float scale = 1.0 - pow(t, 4.0);
         
+        // Dynamic thickness scaling based on camera angle (up to 4.5x thicker at grazing angles)
+        float thicknessScale = mix(4.5, 1.0, clamp(dotCam, 0.0, 1.0));
+        
         vec3 localPos = position - aCentroid;
-        vec3 transformed = aCentroid + localPos * scale;
+        float distToCentroidNormal = dot(localPos, faceNormal);
+        vec3 thicknessPos = distToCentroidNormal * faceNormal;
+        vec3 lateralPos = localPos - thicknessPos;
+        
+        vec3 displacement = vec3(0.0);
+        if (uPulseActive > 0.5) {
+          vec3 nCent = normalize(aCentroid);
+          vec3 nOri = normalize(uPulseOrigin);
+          float d = acos(clamp(dot(nCent, nOri), -1.0, 1.0));
+          float period = 2.0;
+          float elapsedTime = uPulseTime - uPulseStartTime;
+          float tPulse = mod(elapsedTime, period) / period;
+          float wavePos = tPulse * 3.14159 * 1.2;
+          float width = 0.35;
+          float wave = smoothstep(wavePos - width, wavePos, d) * 
+                       smoothstep(wavePos + width, wavePos, d);
+          float edgeFade = 1.0 - tPulse;
+          float lift = wave * edgeFade * 0.15;
+          displacement = faceNormal * lift;
+        }
+        
+        // Apply lateral scale, dynamic thickness scale, and wave displacement
+        vec3 transformed = aCentroid + lateralPos * scale + thicknessPos * thicknessScale + displacement;
         `
       );
     };
 
-    this._sphereMesh = new THREE.Mesh(nonIndexedGeo, mat);
+    this._sphereMesh = new THREE.Mesh(prismOuterGeo, mat);
     this.group.add(this._sphereMesh);
 
     // Interior material: solid logo blue, no gradient, renders on the backside
@@ -379,10 +512,18 @@ class PanopticonSphere {
 
     backMat.onBeforeCompile = (shader) => {
       shader.uniforms.uCameraPos = this._sphereUniforms.uCameraPos;
+      shader.uniforms.uPulseTime = this._sphereUniforms.uPulseTime;
+      shader.uniforms.uPulseStartTime = this._sphereUniforms.uPulseStartTime;
+      shader.uniforms.uPulseOrigin = this._sphereUniforms.uPulseOrigin;
+      shader.uniforms.uPulseActive = this._sphereUniforms.uPulseActive;
 
       shader.vertexShader = `
         attribute vec3 aCentroid;
         uniform vec3 uCameraPos;
+        uniform float uPulseTime;
+        uniform float uPulseStartTime;
+        uniform vec3 uPulseOrigin;
+        uniform float uPulseActive;
       ` + shader.vertexShader;
 
       shader.vertexShader = shader.vertexShader.replace(
@@ -391,17 +532,42 @@ class PanopticonSphere {
         vec3 faceNormal = normalize(aCentroid);
         vec3 camDir = normalize(uCameraPos);
         float dotCam = dot(faceNormal, camDir);
-        // Start the resizing falloff 10% sooner (from 0.66 instead of 0.76) for a more gradual opening effect
-        float t = clamp((dotCam - 0.66) / 0.34, 0.0, 1.0);
+        // Start the resizing falloff earlier (from 0.50 instead of 0.66) for a more gradual opening effect
+        float t = clamp((dotCam - 0.50) / 0.50, 0.0, 1.0);
         float scale = 1.0 - pow(t, 4.0);
         
+        // Dynamic thickness scaling based on camera angle (up to 4.5x thicker at grazing angles)
+        float thicknessScale = mix(4.5, 1.0, clamp(dotCam, 0.0, 1.0));
+        
         vec3 localPos = position - aCentroid;
-        vec3 transformed = aCentroid + localPos * scale;
+        float distToCentroidNormal = dot(localPos, faceNormal);
+        vec3 thicknessPos = distToCentroidNormal * faceNormal;
+        vec3 lateralPos = localPos - thicknessPos;
+        
+        vec3 displacement = vec3(0.0);
+        if (uPulseActive > 0.5) {
+          vec3 nCent = normalize(aCentroid);
+          vec3 nOri = normalize(uPulseOrigin);
+          float d = acos(clamp(dot(nCent, nOri), -1.0, 1.0));
+          float period = 2.0;
+          float elapsedTime = uPulseTime - uPulseStartTime;
+          float tPulse = mod(elapsedTime, period) / period;
+          float wavePos = tPulse * 3.14159 * 1.2;
+          float width = 0.35;
+          float wave = smoothstep(wavePos - width, wavePos, d) * 
+                       smoothstep(wavePos + width, wavePos, d);
+          float edgeFade = 1.0 - tPulse;
+          float lift = wave * edgeFade * 0.15;
+          displacement = faceNormal * lift;
+        }
+        
+        // Apply lateral scale (with a tiny overlap to close seams on the back side), dynamic thickness scale, and wave displacement
+        vec3 transformed = aCentroid + lateralPos * (scale * 1.03) + thicknessPos * thicknessScale + displacement;
         `
       );
     };
 
-    this._sphereInteriorMesh = new THREE.Mesh(nonIndexedGeo, backMat);
+    this._sphereInteriorMesh = new THREE.Mesh(prismBackGeo, backMat);
     this.group.add(this._sphereInteriorMesh);
   }
 
@@ -450,7 +616,11 @@ class PanopticonSphere {
 
     this._edgeUniforms = {
       uCameraPos: { value: new THREE.Vector3() },
-      uColor: { value: this._accentColor.clone() }
+      uColor: { value: this._accentColor.clone() },
+      uPulseTime: { value: 0 },
+      uPulseStartTime: { value: 0 },
+      uPulseOrigin: { value: new THREE.Vector3(0, 1, 0) },
+      uPulseActive: { value: 0.0 }
     };
 
     const mat = new THREE.ShaderMaterial({
@@ -458,17 +628,39 @@ class PanopticonSphere {
       vertexShader: `
         attribute vec3 aCentroid;
         uniform vec3 uCameraPos;
+        uniform float uPulseTime;
+        uniform float uPulseStartTime;
+        uniform vec3 uPulseOrigin;
+        uniform float uPulseActive;
         varying float vScale;
         void main() {
           vec3 faceNormal = normalize(aCentroid);
           vec3 camDir = normalize(uCameraPos);
           float dotCam = dot(faceNormal, camDir);
-          // Start the resizing falloff 10% sooner (from 0.66 instead of 0.76) for a more gradual opening effect
-          float t = clamp((dotCam - 0.66) / 0.34, 0.0, 1.0);
+          // Start the resizing falloff earlier (from 0.50 instead of 0.66) for a more gradual opening effect
+          float t = clamp((dotCam - 0.50) / 0.50, 0.0, 1.0);
           float scale = 1.0 - pow(t, 4.0);
           vScale = scale;
+          
+          vec3 displacement = vec3(0.0);
+          if (uPulseActive > 0.5) {
+            vec3 nCent = normalize(aCentroid);
+            vec3 nOri = normalize(uPulseOrigin);
+            float d = acos(clamp(dot(nCent, nOri), -1.0, 1.0));
+            float period = 2.0;
+            float elapsedTime = uPulseTime - uPulseStartTime;
+            float tPulse = mod(elapsedTime, period) / period;
+            float wavePos = tPulse * 3.14159 * 1.2;
+            float width = 0.35;
+            float wave = smoothstep(wavePos - width, wavePos, d) * 
+                         smoothstep(wavePos + width, wavePos, d);
+            float edgeFade = 1.0 - tPulse;
+            float lift = wave * edgeFade * 0.15;
+            displacement = faceNormal * lift;
+          }
+          
           vec3 localPos = position - aCentroid;
-          vec3 scaledPos = aCentroid + localPos * scale;
+          vec3 scaledPos = aCentroid + localPos * scale + displacement;
           gl_Position = projectionMatrix * modelViewMatrix * vec4(scaledPos, 1.0);
         }
       `,
@@ -491,6 +683,7 @@ class PanopticonSphere {
   _addPulseShell() {
     this._pulseUniforms = {
       uTime:   { value: 0 },
+      uStartTime: { value: 0 },
       uOrigin: { value: new THREE.Vector3(0, 1, 0) },
       uActive: { value: 0.0 },
       uColor:  { value: this._accentColor.clone() }
@@ -510,6 +703,7 @@ class PanopticonSphere {
       `,
       fragmentShader: `
         uniform float uTime;
+        uniform float uStartTime;
         uniform vec3 uOrigin;
         uniform float uActive;
         uniform vec3 uColor;
@@ -523,7 +717,8 @@ class PanopticonSphere {
           float d = acos(clamp(dot(nPos, nOri), -1.0, 1.0));
           
           float period = 2.0;
-          float t = mod(uTime, period) / period;
+          float elapsedTime = max(0.0, uTime - uStartTime);
+          float t = mod(elapsedTime, period) / period;
           
           // The wave front travels from 0 to PI (opposite pole)
           float wavePos = t * 3.14159 * 1.2;
@@ -534,9 +729,14 @@ class PanopticonSphere {
           
           // Stronger at start, fades at end
           float edgeFade = 1.0 - t;
-          float alpha = wave * edgeFade * 0.22;
           
-          gl_FragColor = vec4(uColor, alpha);
+          // Mix the theme color with white (split difference at 0.25) to make the pulse wave lighter and brighter
+          vec3 finalColor = mix(uColor, vec3(1.0, 1.0, 1.0), 0.25);
+          
+          // Increased opacity multiplier to 0.65 (from 0.22) to make the pulse significantly more visible
+          float alpha = wave * edgeFade * 0.65;
+          
+          gl_FragColor = vec4(finalColor, alpha);
         }
       `
     });
@@ -865,7 +1065,8 @@ class PanopticonSphere {
     this.nodes.set(repoName, {
       nodeGroup, disc, iconMat, iconTex, appEntry: normalizedEntry, slot, glowMat,
       glowSprite: glow, rippleMat,
-      targetScale: 1, targetGlow: 0
+      targetScale: 1, targetGlow: 0,
+      slotNormal: normal.clone()
     });
   }
 
@@ -1015,7 +1216,11 @@ class PanopticonSphere {
 
   _click(cx, cy) {
     const hitDisc = this._raycast(cx, cy);
-    if (hitDisc) this.onNodeClick(hitDisc.userData.appEntry);
+    if (hitDisc) {
+      this.onNodeClick(hitDisc.userData.appEntry);
+    } else {
+      this.onNodeClick(null);
+    }
   }
 
   _hover(cx, cy) {
@@ -1163,8 +1368,15 @@ class PanopticonSphere {
     }
 
     // Update pulse time
+    const pTime = performance.now() / 1000;
     if (this._pulseUniforms) {
-      this._pulseUniforms.uTime.value = performance.now() / 1000;
+      this._pulseUniforms.uTime.value = pTime;
+    }
+    if (this._sphereUniforms) {
+      this._sphereUniforms.uPulseTime.value = pTime;
+    }
+    if (this._edgeUniforms) {
+      this._edgeUniforms.uPulseTime.value = pTime;
     }
 
     // Update core time
@@ -1178,6 +1390,33 @@ class PanopticonSphere {
 
     // Smooth node animations (scale & glow)
     this.nodes.forEach(entry => {
+      // Calculate dynamic physical wave displacement to prevent geodesic panel clipping
+      let lift = 0.0;
+      if (entry.slotNormal && this._sphereUniforms && this._sphereUniforms.uPulseActive.value > 0.5) {
+        const nCent = entry.slotNormal;
+        const uPulseOrigin = this._sphereUniforms.uPulseOrigin.value;
+        const nOri = uPulseOrigin.clone().normalize();
+        const d = Math.acos(Math.max(-1.0, Math.min(1.0, nCent.dot(nOri))));
+        
+        const period = 2.0;
+        const elapsedTime = this._sphereUniforms.uPulseTime.value - this._sphereUniforms.uPulseStartTime.value;
+        const tPulse = (elapsedTime % period) / period;
+        const wavePos = tPulse * Math.PI * 1.2;
+        const width = 0.35;
+        
+        const smoothstepVal = (edge0, edge1, x) => {
+          const t = Math.max(0.0, Math.min(1.0, (x - edge0) / (edge1 - edge0)));
+          return t * t * (3.0 - 2.0 * t);
+        };
+        
+        const wave = smoothstepVal(wavePos - width, wavePos, d) * 
+                     smoothstepVal(wavePos + width, wavePos, d);
+        const edgeFade = 1.0 - tPulse;
+        lift = wave * edgeFade * 0.15;
+      }
+      const targetRadius = SPHERE_RADIUS + 0.03 + lift;
+      entry.nodeGroup.position.copy(entry.slotNormal).multiplyScalar(targetRadius);
+
       // Lerp scale
       const curS = entry.nodeGroup.scale.x;
       const targetBaseScale = (window.GlobalIconScale || 1.0) * entry.targetScale;
@@ -1523,9 +1762,21 @@ class PanopticonSphere {
 
     this._focusedRepoName = repoName;
 
+    const now = performance.now() / 1000;
     if (this._pulseUniforms) {
       this._pulseUniforms.uActive.value = 1.0;
       this._pulseUniforms.uOrigin.value.copy(entry.nodeGroup.position);
+      this._pulseUniforms.uStartTime.value = now;
+    }
+    if (this._sphereUniforms) {
+      this._sphereUniforms.uPulseActive.value = 1.0;
+      this._sphereUniforms.uPulseOrigin.value.copy(entry.nodeGroup.position);
+      this._sphereUniforms.uPulseStartTime.value = now;
+    }
+    if (this._edgeUniforms) {
+      this._edgeUniforms.uPulseActive.value = 1.0;
+      this._edgeUniforms.uPulseOrigin.value.copy(entry.nodeGroup.position);
+      this._edgeUniforms.uPulseStartTime.value = now;
     }
   }
 
@@ -1537,6 +1788,12 @@ class PanopticonSphere {
 
     if (this._pulseUniforms) {
       this._pulseUniforms.uActive.value = 0.0;
+    }
+    if (this._sphereUniforms) {
+      this._sphereUniforms.uPulseActive.value = 0.0;
+    }
+    if (this._edgeUniforms) {
+      this._edgeUniforms.uPulseActive.value = 0.0;
     }
   }
 
