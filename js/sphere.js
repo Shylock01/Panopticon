@@ -1501,7 +1501,11 @@ class PanopticonSphere {
         'green': '#1ab256',
         'purple': '#6c25be',
         'gold': '#bc800f',
-        'black-white': '#686868'
+        'black-white': '#686868',
+        'blue-gold': '#1243b5',
+        'red-gold': '#b71414',
+        'brown-blue': '#c8ad93',
+        'black-red': '#222222'
       };
 
       const themeHex = THEME_ACCENTS[theme] || hex || '#1243b5';
@@ -1510,8 +1514,15 @@ class PanopticonSphere {
       
       const isLightMode = (theme === 'white');
 
-      // Use the default blue theme color (#1243b5) in light mode specifically for the inner core and backing shell interior
-      const coreAndInteriorColor = isLightMode ? new THREE.Color('#1243b5') : color;
+      // Use the gold theme color (#bc800f) for core and backing interior in the hybrid themes, otherwise fall back to theme color
+      let coreAndInteriorColor = isLightMode ? new THREE.Color('#1243b5') : color;
+      if (theme === 'blue-gold' || theme === 'red-gold') {
+        coreAndInteriorColor = new THREE.Color('#bc800f');
+      } else if (theme === 'brown-blue') {
+        coreAndInteriorColor = new THREE.Color('#1243b5');
+      } else if (theme === 'black-red') {
+        coreAndInteriorColor = new THREE.Color('#b71414');
+      }
 
       // Update global lights for shadow color
       if (this._ambientLight) {
@@ -1559,7 +1570,8 @@ class PanopticonSphere {
       }
 
       // 6. Halo and Corona Canvas Dynamic Gradient Re-draw
-      this._updateEclipseGlowTextures(themeHex);
+      const coreHex = '#' + coreAndInteriorColor.getHexString();
+      this._updateEclipseGlowTextures(coreHex);
 
       // 7. Existing node glows
       if (this.nodes) {
