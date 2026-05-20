@@ -1,6 +1,6 @@
-// sw.js v1.3.1
-const VERSION = '1.3.1';
-const CACHE_NAME = 'panopticon-v1.3.1';
+// sw.js v2.0.0
+const VERSION = '2.0.0';
+const CACHE_NAME = 'panopticon-v2.0.0';
 const ASSETS = [
   './',
   'index.html',

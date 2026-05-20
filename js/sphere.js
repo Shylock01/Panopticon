@@ -731,8 +731,8 @@ class PanopticonSphere {
     
     const iconMat = logoMat; // Backwards compatible mapping
 
-    // 4. Custom organic bubbling/rippling outline Shader Material (matching the squircle contour)
-    const rippleGeo = new THREE.PlaneGeometry(NODE_R * 2.6, NODE_R * 2.6);
+    // 4. Custom 3D organic bubbling/rippling highlight sphere (positioned inside the shell behind the app icon)
+    const rippleGeo = new THREE.SphereGeometry(NODE_R * 0.95, 32, 16);
     const rippleMat = new THREE.ShaderMaterial({
       uniforms: {
         uTime: { value: 0 },
@@ -741,67 +741,82 @@ class PanopticonSphere {
         uThemeColor: { value: this._accentColor.clone() }
       },
       vertexShader: `
-        varying vec2 vUv;
+        uniform float uTime;
+        varying vec3 vNormal;
+        varying vec3 vViewPosition;
+        varying float vNoise;
+
         void main() {
-          vUv = uv;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          vNormal = normalize(normalMatrix * normal);
+          vViewPosition = -mvPosition.xyz;
+
+          // Warp coordinate lookup with dynamic low-frequency sines to add natural organic swirling distortion
+          vec3 warpedPos = position + vec3(
+            sin(position.y * 10.0 + uTime * 1.5),
+            cos(position.z * 10.0 + uTime * 1.2),
+            sin(position.x * 10.0 + uTime * 1.7)
+          ) * 0.05;
+
+          // Composite wave for a premium "bubbling noise" effect
+          float wave1 = sin(warpedPos.x * 15.0 + uTime * 3.0) * 
+                        cos(warpedPos.y * 15.0 + uTime * 2.0) * 0.012;
+          float wave2 = sin(warpedPos.z * 30.0 - uTime * 5.0) * 
+                        cos(warpedPos.x * 30.0 + uTime * 4.0) * 0.004;
+          float wave = wave1 + wave2;
+
+          vNoise = wave; // Pass displacement to fragment shader for peak coloring
+
+          vec3 displacedPosition = position + normal * wave;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(displacedPosition, 1.0);
         }
       `,
       fragmentShader: `
-        varying vec2 vUv;
+        varying vec3 vNormal;
+        varying vec3 vViewPosition;
+        varying float vNoise;
         uniform float uTime;
         uniform float uHoverProgress;
         uniform float uFocusedProgress;
         uniform vec3 uThemeColor;
 
-        // Signed Distance Function for a rounded box/squircle in UV coordinates
-        float sdRoundedBox(in vec2 p, in vec2 b, in float r) {
-          vec2 q = abs(p) - b + r;
-          return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r;
-        }
-
         void main() {
-          vec2 p = vUv - 0.5;
-          float angle = atan(p.y, p.x);
+          vec3 normal = normalize(vNormal);
+          vec3 viewDir = normalize(vViewPosition);
 
           float activeProgress = max(uHoverProgress, uFocusedProgress);
           if (activeProgress < 0.001) {
             discard;
           }
 
-          // Dynamic wave interference for organic, bubbling ripple shapes
-          float wave1 = sin(angle * 5.0 - uTime * 3.5) * 0.025;
-          float wave2 = cos(angle * 8.0 + uTime * 2.2) * 0.012;
-          float displacement = wave1 + wave2;
+          // Soft spherical glow falloff
+          float rim = max(0.0, dot(normal, viewDir));
 
-          // Compute warped distance to the squircle boundary
-          // b = vec2(0.385, 0.385) aligns perfectly with the outer edge of the squircle
-          float dist = sdRoundedBox(p, vec2(0.385, 0.385), 0.09);
-          float warpedDist = dist + displacement;
+          // Base highlight color: white for hover, uThemeColor for focus/background
+          vec3 targetColor = mix(vec3(1.0, 1.0, 1.0), uThemeColor, uFocusedProgress);
 
-          // Soft bell curve halo around the boundary (thickness of 0.08)
-          float intensity = smoothstep(0.085, 0.0, abs(warpedDist));
+          // Volumetric noise-based inner core coloring for glowing organic energy feel
+          float noiseFactor = smoothstep(-0.008, 0.012, vNoise);
+          vec3 baseColor = mix(targetColor * 0.6, targetColor * 1.4, noiseFactor);
 
-          // LERP between White (hover) and Active Theme Color (focus/background)
-          vec3 finalColor = mix(vec3(1.0, 1.0, 1.0), uThemeColor, uFocusedProgress);
-
-          // Boost outline brightness in focus state for glowing effect
-          float multiplier = mix(1.0, 1.35, uFocusedProgress);
-          float alpha = intensity * activeProgress * multiplier;
+          // Soft fading edge
+          float alpha = smoothstep(0.0, 0.45, rim) * 0.85 * activeProgress;
 
           if (alpha < 0.01) {
             discard;
           }
 
-          gl_FragColor = vec4(finalColor, alpha);
+          gl_FragColor = vec4(baseColor, alpha);
         }
       `,
       transparent: true,
       depthWrite: false,
-      blending: THREE.NormalBlending
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide
     });
     const rippleMesh = new THREE.Mesh(rippleGeo, rippleMat);
-    rippleMesh.position.z = -0.008; // Set slightly behind squircle body
+    rippleMesh.scale.set(1.0, 1.0, 0.14); // Squash it along Z to fit perfectly inside the thin shell
+    rippleMesh.position.set(0, 0, 0); // Centered symmetrically (apex bounds: z = -0.0213 to +0.0213)
 
     const nodeGroup = new THREE.Group();
     // Add components to nodeGroup
