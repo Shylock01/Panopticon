@@ -854,6 +854,7 @@
   function openApp(appEntry) {
     if (!appEntry) return;
     currentShellApp = appEntry;
+    backgroundApps.delete(appEntry.repoName);
     updateAudioMuteState();
 
     if (window.AudioEngine && typeof window.AudioEngine.playAppOpen === 'function') {
