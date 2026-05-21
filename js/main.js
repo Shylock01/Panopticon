@@ -900,6 +900,9 @@
 
   popupTerminateBtn.addEventListener('click', () => {
     if (!activePopupApp) return;
+    if (window.AudioEngine && typeof window.AudioEngine.playAppClose === 'function') {
+      window.AudioEngine.playAppClose();
+    }
     const repo = activePopupApp.repoName;
     backgroundApps.delete(repo);
     appsPlayingAudio.delete(repo);
@@ -931,6 +934,9 @@
   // Called by both shellBackgroundBtn handler AND popHistoryLayer (back btn).
   function backgroundAppCore() {
     if (!currentShellApp) return;
+    if (window.AudioEngine && typeof window.AudioEngine.playAppClose === 'function') {
+      window.AudioEngine.playAppClose();
+    }
     const repo = currentShellApp.repoName;
     backgroundApps.add(repo);
     sphere?.setNodeBackground(repo, true);
@@ -959,6 +965,9 @@
 
   shellCloseBtn.addEventListener('click', () => {
     if (!currentShellApp) return;
+    if (window.AudioEngine && typeof window.AudioEngine.playAppClose === 'function') {
+      window.AudioEngine.playAppClose();
+    }
     const repo = currentShellApp.repoName;
     backgroundApps.delete(repo);
     appsPlayingAudio.delete(repo);

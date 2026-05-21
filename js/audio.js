@@ -263,6 +263,8 @@ window.AudioEngine = (() => {
       
       if (key === 'windowOpen') {
         _buffers['windowClose'] = _createReversedBuffer(audioBuffer);
+      } else if (key === 'appOpen') {
+        _buffers['appClose'] = _createReversedBuffer(audioBuffer);
       }
     } catch (err) {
       console.warn(`Web Audio preload failed for ${key} (${url}):`, err);
@@ -751,6 +753,15 @@ window.AudioEngine = (() => {
     _appOpenPoolIndex = (_appOpenPoolIndex + 1) % APP_OPEN_POOL_SIZE;
   }
 
+  function playAppClose() {
+    if (!_initialized || _masterMuted || _categories.buttons.muted) return;
+    
+    // Attempt Web Audio API with convolution reverb and reversed buffer
+    if (_playUiSoundWithReverb('appClose', 1.0)) {
+      return;
+    }
+  }
+
   function playButton() {
     playClick();
   }
@@ -920,6 +931,7 @@ window.AudioEngine = (() => {
     playWindowOpen,
     playWindowClose,
     playAppOpen,
+    playAppClose,
     setVolume,
     setMute,
     setMasterMute,
