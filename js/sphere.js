@@ -72,6 +72,7 @@ class PanopticonSphere {
     this._targetTheta     = null;
     this._targetPhi       = null;
     this._isLocked        = false;
+    this._lastPulseCycleIndex = -1;
 
     // Zoom state
     // Zoom state
@@ -1387,6 +1388,20 @@ class PanopticonSphere {
       this._edgeUniforms.uPulseTime.value = pTime;
     }
 
+    // Play pulse sound at start of every pulse cycle
+    if (this._sphereUniforms && this._sphereUniforms.uPulseActive.value > 0.5) {
+      const elapsedTime = pTime - this._sphereUniforms.uPulseStartTime.value;
+      if (elapsedTime >= 0) {
+        const cycleIndex = Math.floor(elapsedTime / 2.0);
+        if (cycleIndex > this._lastPulseCycleIndex) {
+          this._lastPulseCycleIndex = cycleIndex;
+          if (window.AudioEngine) {
+            window.AudioEngine.playPulse();
+          }
+        }
+      }
+    }
+
     // Update core time
     if (this._coreMesh && this._coreMesh.material.uniforms) {
       this._coreMesh.material.uniforms.uTime.value = performance.now() / 1000;
@@ -1816,6 +1831,7 @@ class PanopticonSphere {
     this._focusedRepoName = repoName;
 
     const now = performance.now() / 1000;
+    this._lastPulseCycleIndex = -1;
     if (this._pulseUniforms) {
       this._pulseUniforms.uActive.value = 1.0;
       this._pulseUniforms.uOrigin.value.copy(entry.nodeGroup.position);
@@ -1838,6 +1854,7 @@ class PanopticonSphere {
     this._focusedRepoName = null;
     this._targetTheta = null;
     this._targetPhi = null;
+    this._lastPulseCycleIndex = -1;
 
     if (this._pulseUniforms) {
       this._pulseUniforms.uActive.value = 0.0;

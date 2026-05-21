@@ -96,6 +96,15 @@
   const styleAccountSync = document.getElementById('style-account-sync');
   const styleResetBtn = document.getElementById('style-reset-btn');
 
+  // Audio controls
+  const audioMasterMute = document.getElementById('audio-master-mute');
+  const audioVolAmbience = document.getElementById('audio-vol-ambience');
+  const audioVolEffects = document.getElementById('audio-vol-effects');
+  const audioVolButtons = document.getElementById('audio-vol-buttons');
+  const audioMuteAmbience = document.getElementById('audio-mute-ambience');
+  const audioMuteEffects = document.getElementById('audio-mute-effects');
+  const audioMuteButtons = document.getElementById('audio-mute-buttons');
+
   const backgroundApps = new Set(); // repoNames
 
   // ─── Settings Tabs ────────────────────────────────────────────────────────
@@ -199,6 +208,26 @@
       }
       if (config.accountSync !== undefined) {
         styleAccountSync.checked = config.accountSync;
+      }
+    }
+
+    // Load audio config
+    const audioConfig = await Store.getAudioConfig();
+    if (audioConfig) {
+      AudioEngine.applyConfig(audioConfig);
+      // Sync UI to loaded config
+      audioMasterMute.checked = !audioConfig.masterMuted;
+      if (audioConfig.ambience) {
+        audioVolAmbience.value = Math.round((audioConfig.ambience.volume || 0) * 100);
+        audioMuteAmbience.checked = !audioConfig.ambience.muted;
+      }
+      if (audioConfig.effects) {
+        audioVolEffects.value = Math.round((audioConfig.effects.volume || 0) * 100);
+        audioMuteEffects.checked = !audioConfig.effects.muted;
+      }
+      if (audioConfig.buttons) {
+        audioVolButtons.value = Math.round((audioConfig.buttons.volume || 0) * 100);
+        audioMuteButtons.checked = !audioConfig.buttons.muted;
       }
     }
   }
@@ -327,6 +356,49 @@
     autoSaveStyles();
   });
 
+  // ─── Audio Tab Events ──────────────────────────────────────────────────────
+  audioMasterMute.addEventListener('change', () => {
+    // checked = unmuted, unchecked = muted
+    AudioEngine.setMasterMute(!audioMasterMute.checked);
+    autoSaveAudio();
+  });
+  audioVolAmbience.addEventListener('input', () => {
+    AudioEngine.setVolume('ambience', parseInt(audioVolAmbience.value) / 100);
+    autoSaveAudio();
+  });
+  audioVolEffects.addEventListener('input', () => {
+    AudioEngine.setVolume('effects', parseInt(audioVolEffects.value) / 100);
+    autoSaveAudio();
+  });
+  audioVolButtons.addEventListener('input', () => {
+    AudioEngine.setVolume('buttons', parseInt(audioVolButtons.value) / 100);
+    autoSaveAudio();
+  });
+  audioMuteAmbience.addEventListener('change', () => {
+    AudioEngine.setMute('ambience', !audioMuteAmbience.checked);
+    autoSaveAudio();
+  });
+  audioMuteEffects.addEventListener('change', () => {
+    AudioEngine.setMute('effects', !audioMuteEffects.checked);
+    autoSaveAudio();
+  });
+  audioMuteButtons.addEventListener('change', () => {
+    AudioEngine.setMute('buttons', !audioMuteButtons.checked);
+    autoSaveAudio();
+  });
+
+  // Init audio on first user gesture (required by browser autoplay policy)
+  let _audioInitDone = false;
+  function _initAudioOnGesture() {
+    if (_audioInitDone) return;
+    _audioInitDone = true;
+    AudioEngine.init();
+    document.removeEventListener('click', _initAudioOnGesture);
+    document.removeEventListener('touchstart', _initAudioOnGesture);
+  }
+  document.addEventListener('click', _initAudioOnGesture);
+  document.addEventListener('touchstart', _initAudioOnGesture);
+
   const styleSyncRefreshBtn = document.getElementById('style-sync-refresh-btn');
   if (styleSyncRefreshBtn) {
     styleSyncRefreshBtn.addEventListener('click', async () => {
@@ -387,6 +459,14 @@
         window.Auth.syncAll();
       }
     }, 1000);
+  }
+
+  let audioSaveTimeout = null;
+  function autoSaveAudio() {
+    clearTimeout(audioSaveTimeout);
+    audioSaveTimeout = setTimeout(async () => {
+      await Store.saveAudioConfig(AudioEngine.getConfig());
+    }, 500);
   }
 
   // ─── Repo drawer ──────────────────────────────────────────────────────────

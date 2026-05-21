@@ -153,12 +153,22 @@ window.Store = (() => {
     await set('styles_config', styles);
   }
 
+  // --- Audio Config Persistence -----------------------------------------------
+  async function getAudioConfig() {
+    return (await get('audio_config')) || null;
+  }
+
+  async function saveAudioConfig(config) {
+    await set('audio_config', config);
+  }
+
   return { 
     getToken, saveToken, clearToken, 
     getLinkedApps, isLinked, linkApp, unlinkApp, 
     updateAppIcon, updateAppDescription,
     getAppState, setAppState,
     getZoom, saveZoom,
-    getStyles, saveStyles
+    getStyles, saveStyles,
+    getAudioConfig, saveAudioConfig
   };
 })();

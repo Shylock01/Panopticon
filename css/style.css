@@ -1518,6 +1518,63 @@ body:has(#node-popup.visible) .add-btn {
   100% { opacity: 0; }
 }
 
+/* ── Audio Tab Controls ── */
+.audio-master-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-primary);
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+.audio-master-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-primary);
+}
+.audio-master-label svg {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.audio-control-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+.audio-control-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.audio-mute-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: color var(--transition);
+}
+.audio-mute-btn:hover {
+  color: var(--text-primary);
+}
+.audio-mute-btn input {
+  display: none;
+}
+/* When checked (unmuted), show the "on" icon, hide the "off" icon */
+.audio-mute-btn input:checked ~ .audio-icon-on { display: block; }
+.audio-mute-btn input:checked ~ .audio-icon-off { display: none; }
+/* When unchecked (muted), show the "off" icon, hide the "on" icon */
+.audio-mute-btn input:not(:checked) ~ .audio-icon-on { display: none; }
+.audio-mute-btn input:not(:checked) ~ .audio-icon-off { display: block; color: var(--danger); }
+.audio-slider {
+  width: 140px;
+  accent-color: var(--accent);
+}
+
 /* ── Style Tab Controls ── */
 .style-control-group {
   display: flex;

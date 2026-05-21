@@ -1,6 +1,6 @@
-// sw.js v2.0.7
-const VERSION = '2.0.7';
-const CACHE_NAME = 'panopticon-v2.0.7';
+// sw.js v2.0.8
+const VERSION = '2.0.8';
+const CACHE_NAME = 'panopticon-v2.0.8';
 const ASSETS = [
   './',
   'index.html',
@@ -15,7 +15,11 @@ const ASSETS = [
   'js/sphere.js',
   'js/store.js',
   'js/github.js',
-  'js/auth.js'
+  'js/auth.js',
+  'js/audio.js',
+  'audio/ambience_1.mp3',
+  'audio/ambience_2.mp3',
+  'audio/pulse_effect.mp3'
 ];
 
 // Pre-cache static assets during install with network bypass
