@@ -104,6 +104,11 @@
   const audioMuteAmbience = document.getElementById('audio-mute-ambience');
   const audioMuteEffects = document.getElementById('audio-mute-effects');
   const audioMuteButtons = document.getElementById('audio-mute-buttons');
+  const audioVolSoundtrack = document.getElementById('audio-vol-soundtrack');
+  const audioMuteSoundtrack = document.getElementById('audio-mute-soundtrack');
+  const audioSoundtrackUrl = document.getElementById('audio-soundtrack-url');
+  const audioSoundtrackPlay = document.getElementById('audio-soundtrack-play');
+  const audioSoundtrackPause = document.getElementById('audio-soundtrack-pause');
 
   const backgroundApps = new Set(); // repoNames
 
@@ -228,6 +233,11 @@
       if (audioConfig.buttons) {
         audioVolButtons.value = Math.round((audioConfig.buttons.volume || 0) * 100);
         audioMuteButtons.checked = !audioConfig.buttons.muted;
+      }
+      if (audioConfig.soundtrack) {
+        audioVolSoundtrack.value = Math.round((audioConfig.soundtrack.volume || 0) * 100);
+        audioMuteSoundtrack.checked = !audioConfig.soundtrack.muted;
+        audioSoundtrackUrl.value = audioConfig.soundtrack.url || '';
       }
     }
   }
@@ -386,6 +396,50 @@
     AudioEngine.setMute('buttons', !audioMuteButtons.checked);
     autoSaveAudio();
   });
+  audioVolSoundtrack.addEventListener('input', () => {
+    AudioEngine.setVolume('soundtrack', parseInt(audioVolSoundtrack.value) / 100);
+    autoSaveAudio();
+  });
+  audioMuteSoundtrack.addEventListener('change', () => {
+    AudioEngine.setMute('soundtrack', !audioMuteSoundtrack.checked);
+    autoSaveAudio();
+  });
+  audioSoundtrackUrl.addEventListener('change', () => {
+    AudioEngine.applyConfig({ soundtrack: { url: audioSoundtrackUrl.value.trim() } });
+    autoSaveAudio();
+  });
+  audioSoundtrackPlay.addEventListener('click', () => {
+    const url = audioSoundtrackUrl.value.trim();
+    if (url) {
+      AudioEngine.playSoundtrack(url);
+      autoSaveAudio();
+    }
+  });
+  audioSoundtrackPause.addEventListener('click', () => {
+    AudioEngine.pauseSoundtrack();
+    autoSaveAudio();
+  });
+
+  // Sync Soundtrack Play/Pause button states dynamically
+  document.addEventListener('soundtrackstatechange', (e) => {
+    const { isPlaying } = e.detail;
+    if (isPlaying) {
+      audioSoundtrackPlay.innerHTML = `
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="5 3 19 12 5 21 5 3"></polygon>
+        </svg>
+        Playing<span class="soundtrack-playing-dots"></span>
+      `;
+    } else {
+      audioSoundtrackPlay.innerHTML = `
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="5 3 19 12 5 21 5 3"></polygon>
+        </svg>
+        Play
+      `;
+    }
+  });
+
 
   // Init audio on first user gesture (required by browser autoplay policy)
   let _audioInitDone = false;

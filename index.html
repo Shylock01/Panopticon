@@ -420,6 +420,44 @@
             </div>
             <input type="range" id="audio-vol-buttons" class="audio-slider" min="0" max="100" step="1" value="50">
           </div>
+
+          <div class="audio-control-row">
+            <div class="audio-control-label">
+              <span>Soundtrack</span>
+              <label class="audio-mute-btn" title="Mute Soundtrack">
+                <input type="checkbox" id="audio-mute-soundtrack" checked>
+                <svg class="audio-icon-on" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                </svg>
+                <svg class="audio-icon-off" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                  <line x1="23" y1="9" x2="17" y2="15"></line>
+                  <line x1="17" y1="9" x2="23" y2="15"></line>
+                </svg>
+              </label>
+            </div>
+            <input type="range" id="audio-vol-soundtrack" class="audio-slider" min="0" max="100" step="1" value="50">
+          </div>
+
+          <div class="soundtrack-youtube-section">
+            <input type="text" id="audio-soundtrack-url" placeholder="Paste YouTube URL..." class="soundtrack-url-input">
+            <div class="soundtrack-btn-row">
+              <button id="audio-soundtrack-play" class="btn btn-primary btn-sm">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+                Play
+              </button>
+              <button id="audio-soundtrack-pause" class="btn btn-outline btn-sm">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="6" y="4" width="4" height="16"></rect>
+                  <rect x="14" y="4" width="4" height="16"></rect>
+                </svg>
+                Pause
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -521,6 +559,9 @@
     </div>
     <div id="frames-container" class="frames-container"></div>
   </div>
+
+  <!-- YouTube Hidden Player Container -->
+  <div id="youtube-player-container" style="position: absolute; width: 200px; height: 200px; left: -9999px; opacity: 0; pointer-events: none; overflow: hidden;"></div>
 
   <!-- ── Toast Notifications ───────────────────────────────────── -->
   <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="false"></div>

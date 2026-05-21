@@ -488,7 +488,8 @@ body:has(#node-popup.visible) .add-btn {
 }
 .btn-sm { padding: 6px 12px; font-size: 12px; }
 .btn-primary:hover {
-  background: #6ba3ff;
+  background: var(--accent);
+  filter: brightness(1.15);
   box-shadow: 0 0 28px var(--accent-glow);
   transform: translateY(-1px);
 }
@@ -1574,6 +1575,76 @@ body:has(#node-popup.visible) .add-btn {
   width: 140px;
   accent-color: var(--accent);
 }
+
+/* ── Soundtrack YouTube Section ── */
+.soundtrack-youtube-section {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: inset 0 0 12px rgba(0,0,0,0.2);
+}
+.soundtrack-url-input {
+  width: 100%;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font);
+  transition: all var(--transition);
+}
+.soundtrack-url-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+.soundtrack-btn-row {
+  display: flex;
+  gap: 8px;
+}
+.soundtrack-btn-row button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.soundtrack-btn-row .btn-outline:hover {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+  color: var(--text-primary);
+  box-shadow: 0 0 16px var(--accent-glow);
+  transform: translateY(-1px);
+}
+
+/* Soundtrack Playing Dots Animation */
+@keyframes soundtrack-dots {
+  0% { content: ''; }
+  25% { content: '.'; }
+  50% { content: '..'; }
+  75% { content: '...'; }
+  100% { content: ''; }
+}
+.soundtrack-playing-dots::after {
+  content: '';
+  display: inline-block;
+  width: 16px;
+  text-align: left;
+  animation: soundtrack-dots 1.5s infinite steps(1);
+}
+
 
 /* ── Style Tab Controls ── */
 .style-control-group {
