@@ -1528,7 +1528,7 @@ class PanopticonSphere {
         'blue-gold': '#1243b5',
         'red-gold': '#b71414',
         'brown-blue': '#613628',
-        'black-red': '#0a0a0a'
+        'black-red': '#b71414'
       };
 
       const themeHex = THEME_ACCENTS[theme] || hex || '#1243b5';
@@ -1577,6 +1577,8 @@ class PanopticonSphere {
       if (this._sphereMesh && this._sphereMesh.material) {
         if (isLightMode) {
           this._sphereMesh.material.color.set(0xffffff);
+        } else if (theme === 'black-red') {
+          this._sphereMesh.material.color.set('#0a0a0a'); // Keep outer panels black
         } else {
           this._sphereMesh.material.color.copy(color);
         }
