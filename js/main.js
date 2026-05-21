@@ -106,12 +106,16 @@
   const audioMuteButtons = document.getElementById('audio-mute-buttons');
   const audioVolSoundtrack = document.getElementById('audio-vol-soundtrack');
   const audioMuteSoundtrack = document.getElementById('audio-mute-soundtrack');
-  const audioSoundtrackUrl = document.getElementById('audio-soundtrack-url');
-  const audioSoundtrackPlay = document.getElementById('audio-soundtrack-play');
-  const audioSoundtrackPause = document.getElementById('audio-soundtrack-pause');
-  const audioSoundtrackFile = document.getElementById('audio-soundtrack-file');
-  const audioSoundtrackFileBtn = document.getElementById('audio-soundtrack-file-btn');
-  const audioSoundtrackFilename = document.getElementById('audio-soundtrack-filename');
+
+  // Floating Soundtrack Tab elements
+  const soundtrackFloatTab = document.getElementById('soundtrack-float-tab');
+  const soundtrackTabHandle = document.getElementById('soundtrack-tab-handle');
+  const soundtrackUninitView = document.getElementById('soundtrack-uninit-view');
+  const soundtrackActiveView = document.getElementById('soundtrack-active-view');
+  const soundtrackYoutubeUrl = document.getElementById('soundtrack-youtube-url');
+  const soundtrackInitBtn = document.getElementById('soundtrack-init-btn');
+  const soundtrackPlayPauseBtn = document.getElementById('soundtrack-play-pause-btn');
+  const soundtrackCloseBtn = document.getElementById('soundtrack-close-btn');
 
   const backgroundApps = new Set(); // repoNames
 
@@ -241,21 +245,8 @@
         audioVolSoundtrack.value = Math.round((audioConfig.soundtrack.volume || 0) * 100);
         audioMuteSoundtrack.checked = !audioConfig.soundtrack.muted;
         const rawUrl = audioConfig.soundtrack.url || '';
-        audioSoundtrackUrl.value = rawUrl === 'local' ? '' : rawUrl;
-
-        // Restore saved local soundtrack if it exists
-        const savedFilename = await Store.getSoundtrackFilename();
-        if (savedFilename) {
-          audioSoundtrackFilename.textContent = savedFilename;
-          audioSoundtrackFilename.removeAttribute('hidden');
-          const savedBlob = await Store.getSoundtrackFile();
-          if (savedBlob) {
-            AudioEngine.playSoundtrack(savedBlob);
-            AudioEngine.pauseSoundtrack();
-          }
-        } else if (rawUrl && rawUrl !== 'local') {
-          AudioEngine.playSoundtrack(rawUrl);
-          AudioEngine.pauseSoundtrack();
+        if (rawUrl && rawUrl !== 'local') {
+          soundtrackYoutubeUrl.value = rawUrl;
         }
       }
     }
@@ -423,88 +414,67 @@
     AudioEngine.setMute('soundtrack', !audioMuteSoundtrack.checked);
     autoSaveAudio();
   });
-  // Handle direct audio URL inputs
-  audioSoundtrackUrl.addEventListener('input', async () => {
-    const url = audioSoundtrackUrl.value.trim();
-    if (url) {
-      // Clear any loaded local file state
-      audioSoundtrackFilename.setAttribute('hidden', '');
-      audioSoundtrackFilename.textContent = '';
-      await Store.saveSoundtrackFile(null);
-      await Store.saveSoundtrackFilename('');
+  // Floating Soundtrack Tab event listeners
+  if (soundtrackTabHandle) {
+    soundtrackTabHandle.addEventListener('click', () => {
+      soundtrackFloatTab.classList.toggle('expanded');
+    });
+  }
 
-      AudioEngine.applyConfig({ soundtrack: { url: url } });
-      AudioEngine.playSoundtrack(url);
-      AudioEngine.pauseSoundtrack(); // Load but don't autoplay immediately
+  if (soundtrackInitBtn) {
+    soundtrackInitBtn.addEventListener('click', () => {
+      const url = soundtrackYoutubeUrl.value.trim();
+      if (url) {
+        AudioEngine.playSoundtrack(url, true);
+        soundtrackFloatTab.classList.add('initialized');
+        soundtrackUninitView.setAttribute('hidden', '');
+        soundtrackActiveView.removeAttribute('hidden');
+        autoSaveAudio();
+      }
+    });
+  }
+
+  if (soundtrackPlayPauseBtn) {
+    soundtrackPlayPauseBtn.addEventListener('click', () => {
+      const state = AudioEngine.getCategory('soundtrack');
+      if (state && state.url) {
+        const playIcon = soundtrackPlayPauseBtn.querySelector('.icon-play');
+        const isPaused = playIcon && !playIcon.hasAttribute('hidden');
+        if (isPaused) {
+          AudioEngine.playSoundtrack(state.url, true);
+        } else {
+          AudioEngine.pauseSoundtrack();
+        }
+        autoSaveAudio();
+      }
+    });
+  }
+
+  if (soundtrackCloseBtn) {
+    soundtrackCloseBtn.addEventListener('click', () => {
+      AudioEngine.stopSoundtrack();
+      soundtrackFloatTab.classList.remove('initialized');
+      soundtrackFloatTab.classList.remove('expanded');
+      soundtrackActiveView.setAttribute('hidden', '');
+      soundtrackUninitView.removeAttribute('hidden');
       autoSaveAudio();
-    }
-  });
-
-  // Local File picker button click triggers the hidden input
-  audioSoundtrackFileBtn.addEventListener('click', () => {
-    audioSoundtrackFile.click();
-  });
-
-  // Handle local audio file selection
-  audioSoundtrackFile.addEventListener('change', async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    // Display filename badge
-    audioSoundtrackFilename.textContent = file.name;
-    audioSoundtrackFilename.removeAttribute('hidden');
-
-    // Clear direct URL input
-    audioSoundtrackUrl.value = '';
-
-    // Save to IndexedDB KV Store
-    await Store.saveSoundtrackFile(file);
-    await Store.saveSoundtrackFilename(file.name);
-
-    // Initialize and play the native audio soundtrack
-    AudioEngine.playSoundtrack(file);
-    autoSaveAudio();
-  });
-
-  audioSoundtrackPlay.addEventListener('click', async () => {
-    // If a local file is loaded, play it
-    const savedBlob = await Store.getSoundtrackFile();
-    if (savedBlob) {
-      AudioEngine.playSoundtrack(savedBlob);
-      autoSaveAudio();
-      return;
-    }
-
-    // Otherwise, play from the pasted URL
-    const url = audioSoundtrackUrl.value.trim();
-    if (url) {
-      AudioEngine.playSoundtrack(url);
-      autoSaveAudio();
-    }
-  });
-
-  audioSoundtrackPause.addEventListener('click', () => {
-    AudioEngine.pauseSoundtrack();
-    autoSaveAudio();
-  });
+    });
+  }
 
   // Sync Soundtrack Play/Pause button states dynamically
   document.addEventListener('soundtrackstatechange', (e) => {
     const { isPlaying } = e.detail;
-    if (isPlaying) {
-      audioSoundtrackPlay.innerHTML = `
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polygon points="5 3 19 12 5 21 5 3"></polygon>
-        </svg>
-        Playing<span class="soundtrack-playing-dots"></span>
-      `;
-    } else {
-      audioSoundtrackPlay.innerHTML = `
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polygon points="5 3 19 12 5 21 5 3"></polygon>
-        </svg>
-        Play
-      `;
+    if (soundtrackPlayPauseBtn) {
+      const playIcon = soundtrackPlayPauseBtn.querySelector('.icon-play');
+      const pauseIcon = soundtrackPlayPauseBtn.querySelector('.icon-pause');
+      
+      if (isPlaying) {
+        if (playIcon) playIcon.setAttribute('hidden', '');
+        if (pauseIcon) pauseIcon.removeAttribute('hidden');
+      } else {
+        if (playIcon) playIcon.removeAttribute('hidden');
+        if (pauseIcon) pauseIcon.setAttribute('hidden', '');
+      }
     }
   });
 
