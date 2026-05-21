@@ -11,6 +11,22 @@ window.AudioEngine = (() => {
   let _appMuted = false;
   let _soundtrackPausedByApp = false;
 
+  // Web Audio API State for Premium Reverb
+  let _audioCtx = null;
+  let _masterUiGainNode = null;
+  let _dryGainNode = null;
+  let _wetGainNode = null;
+  let _reverbNode = null;
+  const _buffers = {};
+  const _soundUrls = {
+    click: 'audio/sound_click.wav',
+    select: 'audio/sound_select.wav',
+    windowOpen: 'audio/sound_window_open.wav',
+    appOpen: 'audio/sound_app_open.wav'
+  };
+  let _webAudioSupported = false;
+  let _webAudioInitialized = false;
+
   // UI Sound Pools
   const CLICK_POOL_SIZE = 8;
   let _clickPool = [];
@@ -182,6 +198,145 @@ window.AudioEngine = (() => {
         if (onComplete) onComplete();
       }
     }, 50);
+  }
+
+  // ── Web Audio API Reverb Engine ────────────────────────────────────────────
+
+  function _createReverbImpulse(duration, decay) {
+    const sampleRate = _audioCtx.sampleRate;
+    const length = sampleRate * duration;
+    const impulse = _audioCtx.createBuffer(2, length, sampleRate);
+    const left = impulse.getChannelData(0);
+    const right = impulse.getChannelData(1);
+
+    let leftLast = 0;
+    let rightLast = 0;
+    const damping = 0.15; // Running average one-pole filter damping coefficient (simulates material absorption)
+    const energyCompensation = 2.5; // Compensate for volume attenuation of the filter
+
+    for (let i = 0; i < length; i++) {
+      // Exponential decay envelope
+      const decayEnvelope = Math.exp(-i / (sampleRate * decay));
+      
+      // Uncorrelated noise for stereo spaciousness
+      const leftNoise = Math.random() * 2 - 1;
+      const rightNoise = Math.random() * 2 - 1;
+      
+      // Apply low-pass running average filter
+      leftLast += damping * (leftNoise - leftLast);
+      rightLast += damping * (rightNoise - rightLast);
+      
+      left[i] = leftLast * decayEnvelope * energyCompensation;
+      right[i] = rightLast * decayEnvelope * energyCompensation;
+    }
+    return impulse;
+  }
+
+  async function _preloadBuffer(key, url) {
+    try {
+      const response = await fetch(url);
+      const arrayBuffer = await response.arrayBuffer();
+      const audioBuffer = await _audioCtx.decodeAudioData(arrayBuffer);
+      _buffers[key] = audioBuffer;
+    } catch (err) {
+      console.warn(`Web Audio preload failed for ${key} (${url}):`, err);
+    }
+  }
+
+  function _initWebAudio() {
+    if (_webAudioInitialized) return;
+    
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) {
+      console.warn("Web Audio API not supported in this browser.");
+      return;
+    }
+    
+    try {
+      _audioCtx = new AudioContextClass();
+      _webAudioSupported = true;
+      
+      // Setup dry path, wet path, and master UI volume node
+      _masterUiGainNode = _audioCtx.createGain();
+      _masterUiGainNode.gain.value = _getEffectiveVolume('buttons');
+      _masterUiGainNode.connect(_audioCtx.destination);
+      
+      _dryGainNode = _audioCtx.createGain();
+      _dryGainNode.gain.value = 1.0;
+      _dryGainNode.connect(_masterUiGainNode);
+      
+      _wetGainNode = _audioCtx.createGain();
+      _wetGainNode.gain.value = 0.75; // Rich, prominent wet tail (up from 0.18)
+      _wetGainNode.connect(_masterUiGainNode);
+      
+      _reverbNode = _audioCtx.createConvolver();
+      _reverbNode.buffer = _createReverbImpulse(3.0, 1.0); // 3.0s tail, 1.0s decay constant (up from 1.8s/0.5s)
+      _reverbNode.connect(_wetGainNode);
+      
+      _webAudioInitialized = true;
+      
+      // Preload buffers
+      Object.entries(_soundUrls).forEach(([key, url]) => {
+        _preloadBuffer(key, url);
+      });
+      
+    } catch (e) {
+      console.error("Failed to initialize Web Audio context:", e);
+      _webAudioSupported = false;
+    }
+  }
+
+  function _updateWebAudioButtonVolume() {
+    if (_webAudioInitialized && _webAudioSupported && _masterUiGainNode) {
+      try {
+        _masterUiGainNode.gain.setValueAtTime(_getEffectiveVolume('buttons'), _audioCtx.currentTime);
+      } catch (e) {
+        console.warn("Failed to update Web Audio button volume:", e);
+      }
+    }
+  }
+
+  function _playUiSoundWithReverb(key, volMultiplier = 1.0) {
+    if (!_initialized || _masterMuted || _categories.buttons.muted) return false;
+    
+    // Lazy initialize if not already done
+    if (!_webAudioInitialized) {
+      _initWebAudio();
+    }
+    
+    if (!_webAudioInitialized || !_webAudioSupported) return false;
+    
+    const buffer = _buffers[key];
+    if (!buffer) {
+      // Buffer not yet loaded, fallback to HTML5 pool
+      return false;
+    }
+    
+    try {
+      if (_audioCtx.state === 'suspended') {
+        _audioCtx.resume();
+      }
+      
+      const source = _audioCtx.createBufferSource();
+      source.buffer = buffer;
+      
+      if (volMultiplier !== 1.0) {
+        const sourceGain = _audioCtx.createGain();
+        sourceGain.gain.setValueAtTime(volMultiplier, _audioCtx.currentTime);
+        source.connect(sourceGain);
+        sourceGain.connect(_dryGainNode);
+        sourceGain.connect(_reverbNode);
+      } else {
+        source.connect(_dryGainNode);
+        source.connect(_reverbNode);
+      }
+      
+      source.start(0);
+      return true;
+    } catch (e) {
+      console.warn(`Web Audio play failed for ${key}, falling back to legacy:`, e);
+      return false;
+    }
   }
 
   // ── Pulse Effect ───────────────────────────────────────────────────────────
@@ -424,6 +579,9 @@ window.AudioEngine = (() => {
     if (_initialized) return;
     _initialized = true;
 
+    // Initialize Web Audio graph
+    _initWebAudio();
+
     // Create ambience tracks
     _ambienceTracks.push(_createAmbienceTrack('audio/ambience_1.mp3', 0, 0, 1.0));
     _ambienceTracks.push(_createAmbienceTrack('audio/ambience_2.mp3', 2, 4, 0.30));
@@ -465,6 +623,13 @@ window.AudioEngine = (() => {
   }
 
   function resumeAmbience() {
+    // Ensure Web Audio is initialized & un-suspended
+    if (!_webAudioInitialized) {
+      _initWebAudio();
+    } else if (_audioCtx && _audioCtx.state === 'suspended') {
+      _audioCtx.resume();
+    }
+
     if (!_initialized) {
       init();
       return;
@@ -489,6 +654,13 @@ window.AudioEngine = (() => {
 
   function playClick() {
     if (!_initialized || _masterMuted || _categories.buttons.muted) return;
+    
+    // Attempt Web Audio API with convolution reverb
+    if (_playUiSoundWithReverb('click', 0.2)) {
+      return;
+    }
+    
+    // Legacy HTML5 Audio Pool Fallback
     const audio = _clickPool[_clickPoolIndex];
     audio.volume = _getEffectiveVolume('buttons') * 0.2;
     audio.currentTime = 0;
@@ -498,6 +670,13 @@ window.AudioEngine = (() => {
 
   function playSelect() {
     if (!_initialized || _masterMuted || _categories.buttons.muted) return;
+    
+    // Attempt Web Audio API with convolution reverb
+    if (_playUiSoundWithReverb('select', 1.0)) {
+      return;
+    }
+    
+    // Legacy HTML5 Audio Pool Fallback
     const audio = _selectPool[_selectPoolIndex];
     audio.volume = _getEffectiveVolume('buttons');
     audio.currentTime = 0;
@@ -507,6 +686,13 @@ window.AudioEngine = (() => {
 
   function playWindowOpen() {
     if (!_initialized || _masterMuted || _categories.buttons.muted) return;
+    
+    // Attempt Web Audio API with convolution reverb
+    if (_playUiSoundWithReverb('windowOpen', 1.0)) {
+      return;
+    }
+    
+    // Legacy HTML5 Audio Pool Fallback
     const audio = _windowOpenPool[_windowOpenPoolIndex];
     audio.volume = _getEffectiveVolume('buttons');
     audio.currentTime = 0;
@@ -516,6 +702,13 @@ window.AudioEngine = (() => {
 
   function playAppOpen() {
     if (!_initialized || _masterMuted || _categories.buttons.muted) return;
+    
+    // Attempt Web Audio API with convolution reverb
+    if (_playUiSoundWithReverb('appOpen', 1.0)) {
+      return;
+    }
+    
+    // Legacy HTML5 Audio Pool Fallback
     const audio = _appOpenPool[_appOpenPoolIndex];
     audio.volume = _getEffectiveVolume('buttons');
     audio.currentTime = 0;
@@ -543,6 +736,7 @@ window.AudioEngine = (() => {
       _selectPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
       _windowOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
       _appOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
+      _updateWebAudioButtonVolume();
     } else if (category === 'soundtrack') {
       _updateYTVolume();
     }
@@ -564,6 +758,7 @@ window.AudioEngine = (() => {
       _selectPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
       _windowOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
       _appOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
+      _updateWebAudioButtonVolume();
     } else if (category === 'soundtrack') {
       _updateYTVolume();
       _dispatchSoundtrackState();
@@ -581,6 +776,7 @@ window.AudioEngine = (() => {
     _selectPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
     _windowOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
     _appOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
+    _updateWebAudioButtonVolume();
 
     if (_ytPlayer && typeof _ytPlayer.mute === 'function') {
       _updateYTVolume();
@@ -644,6 +840,7 @@ window.AudioEngine = (() => {
       _selectPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
       _windowOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
       _appOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
+      _updateWebAudioButtonVolume();
       _updateYTVolume();
     }
     _dispatchSoundtrackState();
