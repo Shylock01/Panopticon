@@ -756,8 +756,8 @@ window.AudioEngine = (() => {
   function playAppClose() {
     if (!_initialized || _masterMuted || _categories.buttons.muted) return;
     
-    // Attempt Web Audio API with convolution reverb and reversed buffer
-    if (_playUiSoundWithReverb('appClose', 1.0)) {
+    // Attempt Web Audio API with convolution reverb and reversed windowOpen buffer
+    if (_playUiSoundWithReverb('windowClose', 1.0)) {
       return;
     }
   }
