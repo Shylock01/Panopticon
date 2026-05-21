@@ -20,11 +20,12 @@ window.AudioEngine = (() => {
   const CROSSFADE_DURATION = 3;   // seconds of crossfade overlap
   const INITIAL_FADE_IN    = 3;   // seconds to fade in on first play
 
-  function _createAmbienceTrack(src, trimStart = 0, trimEnd = 0) {
+  function _createAmbienceTrack(src, trimStart = 0, trimEnd = 0, relativeVolume = 1.0) {
     const track = {
       src,
       trimStart,
       trimEnd,
+      relativeVolume,
       elements: [new Audio(src), new Audio(src)],
       activeIndex: 0,
       duration: 0,
@@ -39,10 +40,14 @@ window.AudioEngine = (() => {
       el.preload = 'auto';
     });
 
-    // When metadata loads, capture the effective duration
-    track.elements[0].addEventListener('loadedmetadata', () => {
-      track.duration = track.elements[0].duration - trimStart - trimEnd;
-    });
+    // Capture metadata safely
+    const onMetadata = () => {
+      track.duration = track.elements[0].duration;
+    };
+    track.elements[0].addEventListener('loadedmetadata', onMetadata);
+    if (track.elements[0].duration) {
+      onMetadata();
+    }
 
     return track;
   }
@@ -59,7 +64,8 @@ window.AudioEngine = (() => {
     el.play().catch(() => {});
 
     // Fade in
-    _fadeVolume(el, 0, _getEffectiveVolume('ambience'), fadeIn);
+    const targetVol = _getEffectiveVolume('ambience') * (track.relativeVolume || 1.0);
+    _fadeVolume(el, 0, targetVol, fadeIn);
 
     // Schedule the crossfade loop
     _scheduleAmbienceCrossfade(track);
@@ -69,7 +75,12 @@ window.AudioEngine = (() => {
     clearTimeout(track.loopTimer);
 
     const el = track.elements[track.activeIndex];
-    // Time until we need to start the crossfade (before the track ends)
+    if (!el.duration) {
+      // If duration not loaded yet, retry shortly
+      track.loopTimer = setTimeout(() => _scheduleAmbienceCrossfade(track), 200);
+      return;
+    }
+
     const effectiveEnd = el.duration - track.trimEnd;
     const crossfadeStart = effectiveEnd - CROSSFADE_DURATION;
 
@@ -83,15 +94,6 @@ window.AudioEngine = (() => {
       }
     };
 
-    // Also set a hard stop at the trim boundary
-    const stopHandler = () => {
-      if (el.currentTime >= effectiveEnd) {
-        el.pause();
-        el.removeEventListener('timeupdate', stopHandler);
-      }
-    };
-    el.addEventListener('timeupdate', stopHandler);
-
     track.loopTimer = setTimeout(check, Math.max(0, (crossfadeStart - el.currentTime) * 1000 - 500));
   }
 
@@ -100,16 +102,18 @@ window.AudioEngine = (() => {
     const nextIndex = (track.activeIndex + 1) % 2;
     const inEl = track.elements[nextIndex];
 
-    // Prepare the incoming element
-    inEl.currentTime = track.trimStart;
+    // Prepare the incoming element while silent
     inEl.volume = 0;
+    inEl.currentTime = track.trimStart;
     inEl.play().catch(() => {});
 
-    const targetVol = _getEffectiveVolume('ambience');
+    const targetVol = _getEffectiveVolume('ambience') * (track.relativeVolume || 1.0);
 
     // Fade out old, fade in new
-    _fadeVolume(outEl, outEl.volume, 0, CROSSFADE_DURATION);
-    _fadeVolume(inEl, 0, targetVol, CROSSFADE_DURATION);
+    _fadeVolume(outEl, outEl.volume, 0, CROSSFADE_DURATION, () => {
+      outEl.pause();
+    });
+    _fadeVolume(inEl, inEl.volume, targetVol, CROSSFADE_DURATION);
 
     track.activeIndex = nextIndex;
     track.fading = false;
@@ -118,19 +122,26 @@ window.AudioEngine = (() => {
     _scheduleAmbienceCrossfade(track);
   }
 
-  function _fadeVolume(audioEl, from, to, durationSec) {
+  function _fadeVolume(audioEl, from, to, durationSec, onComplete) {
+    if (audioEl._fadeInterval) {
+      clearInterval(audioEl._fadeInterval);
+    }
     const steps = Math.ceil(durationSec * 20); // 20 steps/sec = 50ms intervals
     const stepSize = (to - from) / steps;
     let current = from;
     let step = 0;
 
-    const interval = setInterval(() => {
+    audioEl.volume = Math.max(0, Math.min(1, current));
+
+    audioEl._fadeInterval = setInterval(() => {
       step++;
       current += stepSize;
       audioEl.volume = Math.max(0, Math.min(1, current));
       if (step >= steps) {
         audioEl.volume = Math.max(0, Math.min(1, to));
-        clearInterval(interval);
+        clearInterval(audioEl._fadeInterval);
+        audioEl._fadeInterval = null;
+        if (onComplete) onComplete();
       }
     }, 50);
   }
@@ -158,18 +169,18 @@ window.AudioEngine = (() => {
     _initialized = true;
 
     // Create ambience tracks
-    _ambienceTracks.push(_createAmbienceTrack('audio/ambience_1.mp3', 0, 0));
-    _ambienceTracks.push(_createAmbienceTrack('audio/ambience_2.mp3', 2, 2));
+    _ambienceTracks.push(_createAmbienceTrack('audio/ambience_1.mp3', 0, 0, 1.0));
+    _ambienceTracks.push(_createAmbienceTrack('audio/ambience_2.mp3', 2, 4, 0.30));
 
     // Start ambience with fade-in (wait for metadata to load)
     _ambienceTracks.forEach(track => {
       const el = track.elements[0];
       if (el.readyState >= 1) {
-        track.duration = el.duration - track.trimStart - track.trimEnd;
+        track.duration = el.duration;
         _startAmbienceTrack(track, INITIAL_FADE_IN);
       } else {
         el.addEventListener('loadedmetadata', () => {
-          track.duration = el.duration - track.trimStart - track.trimEnd;
+          track.duration = el.duration;
           _startAmbienceTrack(track, INITIAL_FADE_IN);
         }, { once: true });
       }
@@ -202,7 +213,10 @@ window.AudioEngine = (() => {
     if (category === 'ambience') {
       _updateAmbienceVolume();
     } else if (category === 'effects') {
-      _pulsePool.forEach(a => { a.volume = _getEffectiveVolume('effects'); });
+      _pulsePool.forEach(a => {
+        if (a._fadeInterval) clearInterval(a._fadeInterval);
+        a.volume = _getEffectiveVolume('effects');
+      });
     }
   }
 
@@ -213,14 +227,20 @@ window.AudioEngine = (() => {
     if (category === 'ambience') {
       _updateAmbienceVolume();
     } else if (category === 'effects') {
-      _pulsePool.forEach(a => { a.volume = _getEffectiveVolume('effects'); });
+      _pulsePool.forEach(a => {
+        if (a._fadeInterval) clearInterval(a._fadeInterval);
+        a.volume = _getEffectiveVolume('effects');
+      });
     }
   }
 
   function setMasterMute(muted) {
     _masterMuted = muted;
     _updateAmbienceVolume();
-    _pulsePool.forEach(a => { a.volume = _getEffectiveVolume('effects'); });
+    _pulsePool.forEach(a => {
+      if (a._fadeInterval) clearInterval(a._fadeInterval);
+      a.volume = _getEffectiveVolume('effects');
+    });
   }
 
   function _updateAmbienceVolume() {
@@ -228,7 +248,8 @@ window.AudioEngine = (() => {
     _ambienceTracks.forEach(track => {
       const activeEl = track.elements[track.activeIndex];
       if (!activeEl.paused) {
-        activeEl.volume = vol;
+        // Smoothly fade to the new volume over 0.5s to prevent pops!
+        _fadeVolume(activeEl, activeEl.volume, vol * (track.relativeVolume || 1.0), 0.5);
       }
     });
   }
