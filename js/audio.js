@@ -8,6 +8,9 @@ window.AudioEngine = (() => {
   let _masterMuted = false;
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   let _mobileHiddenMuted = false;
+  let _appMuted = false;
+  let _soundtrackPausedByApp = false;
+
 
   const _categories = {
     ambience: { volume: 0.5, muted: false },
@@ -56,7 +59,7 @@ window.AudioEngine = (() => {
   }
 
   function _getEffectiveVolume(category) {
-    if (_masterMuted || _categories[category].muted) return 0;
+    if (_masterMuted || _categories[category].muted || _appMuted) return 0;
     if (category === 'ambience' && _mobileHiddenMuted) return 0;
     return _categories[category].volume;
   }
@@ -233,7 +236,7 @@ window.AudioEngine = (() => {
     const ytVolume = Math.round(targetVol * 100);
     _ytPlayer.setVolume(ytVolume);
 
-    const isMuted = _masterMuted || _categories.soundtrack.muted;
+    const isMuted = _masterMuted || _categories.soundtrack.muted || _appMuted;
     if (isMuted) {
       _ytPlayer.mute();
     } else {
@@ -257,8 +260,14 @@ window.AudioEngine = (() => {
         const currentVideoId = _ytPlayer.getVideoData().video_id;
         if (currentVideoId === videoId) {
           if (autoplay) {
-            _ytPlayer.playVideo();
-            _soundtrackPlaying = true;
+            if (_appMuted) {
+              _soundtrackPlaying = false;
+              _soundtrackPausedByApp = true;
+            } else {
+              _ytPlayer.playVideo();
+              _soundtrackPlaying = true;
+              _soundtrackPausedByApp = false;
+            }
             _dispatchSoundtrackState();
           }
           return;
@@ -285,7 +294,7 @@ window.AudioEngine = (() => {
         videoId: videoId,
         host: 'https://www.youtube-nocookie.com',
         playerVars: {
-          autoplay: autoplay ? 1 : 0,
+          autoplay: (autoplay && !_appMuted) ? 1 : 0,
           controls: 0,
           disablekb: 1,
           fs: 0,
@@ -300,16 +309,24 @@ window.AudioEngine = (() => {
           onReady: (event) => {
             _updateYTVolume();
             if (autoplay) {
-              event.target.playVideo();
-              _soundtrackPlaying = true;
+              if (_appMuted) {
+                _soundtrackPlaying = false;
+                _soundtrackPausedByApp = true;
+              } else {
+                event.target.playVideo();
+                _soundtrackPlaying = true;
+                _soundtrackPausedByApp = false;
+              }
             } else {
               _soundtrackPlaying = false;
+              _soundtrackPausedByApp = false;
             }
             _dispatchSoundtrackState();
           },
           onStateChange: (event) => {
             if (event.data === 1) { // YT.PlayerState.PLAYING
               _soundtrackPlaying = true;
+              _soundtrackPausedByApp = false;
             } else if (event.data === 2 || event.data === 0) { // YT.PlayerState.PAUSED or ENDED
               _soundtrackPlaying = false;
             }
@@ -325,6 +342,7 @@ window.AudioEngine = (() => {
       _ytPlayer.pauseVideo();
     }
     _soundtrackPlaying = false;
+    _soundtrackPausedByApp = false;
     _dispatchSoundtrackState();
   }
 
@@ -342,6 +360,7 @@ window.AudioEngine = (() => {
       container.innerHTML = '';
     }
     _soundtrackPlaying = false;
+    _soundtrackPausedByApp = false;
     _dispatchSoundtrackState();
   }
 
@@ -523,6 +542,32 @@ window.AudioEngine = (() => {
     _dispatchSoundtrackState();
   }
 
+  function setAppMuted(muted) {
+    if (_appMuted === muted) return;
+    _appMuted = muted;
+
+    _updateAmbienceVolume();
+    _updateYTVolume();
+
+    if (_ytPlayer && typeof _ytPlayer.mute === 'function') {
+      if (muted) {
+        if (_soundtrackPlaying) {
+          _ytPlayer.pauseVideo();
+          _soundtrackPlaying = false;
+          _soundtrackPausedByApp = true;
+          _dispatchSoundtrackState();
+        }
+      } else {
+        if (_soundtrackPausedByApp) {
+          _ytPlayer.playVideo();
+          _soundtrackPlaying = true;
+          _soundtrackPausedByApp = false;
+          _dispatchSoundtrackState();
+        }
+      }
+    }
+  }
+
   function isMasterMuted() { return _masterMuted; }
   function getCategory(cat) { return _categories[cat] ? { ..._categories[cat] } : null; }
 
@@ -534,6 +579,7 @@ window.AudioEngine = (() => {
     setVolume,
     setMute,
     setMasterMute,
+    setAppMuted,
     isMasterMuted,
     getCategory,
     getConfig,

@@ -119,6 +119,22 @@
   const soundtrackVisualizer = document.getElementById('soundtrack-visualizer');
 
   const backgroundApps = new Set(); // repoNames
+  const appsPlayingAudio = new Set(); // repoNames of background apps actively playing audio
+
+  function updateAudioMuteState() {
+    const hasActiveForegroundApp = (currentShellApp !== null);
+    let hasPlayingBackgroundApp = false;
+    for (const repo of appsPlayingAudio) {
+      if (backgroundApps.has(repo)) {
+        hasPlayingBackgroundApp = true;
+        break;
+      }
+    }
+    const shouldMute = hasActiveForegroundApp || hasPlayingBackgroundApp;
+    if (window.AudioEngine && typeof window.AudioEngine.setAppMuted === 'function') {
+      window.AudioEngine.setAppMuted(shouldMute);
+    }
+  }
 
   // ─── Settings Tabs ────────────────────────────────────────────────────────
   document.querySelectorAll('.settings-nav-item').forEach(btn => {
@@ -778,6 +794,7 @@
   function openApp(appEntry) {
     if (!appEntry) return;
     currentShellApp = appEntry;
+    updateAudioMuteState();
 
     if (sphere) sphere.lockFocus(appEntry.repoName);
 
@@ -824,6 +841,7 @@
     if (!activePopupApp) return;
     const repo = activePopupApp.repoName;
     backgroundApps.delete(repo);
+    appsPlayingAudio.delete(repo);
     sphere?.setNodeBackground(repo, false);
 
     if (iframes.has(repo)) {
@@ -834,6 +852,7 @@
     currentShellApp = null;
     hideNodePopup();
     showToast(`${repo} closed.`, 'info');
+    updateAudioMuteState();
   });
 
   shellTab.addEventListener('click', () => {
@@ -862,6 +881,7 @@
       appShell.classList.remove('app-shell--hiding');
       currentShellApp = null;
       shellHideTimeout = null;
+      updateAudioMuteState();
     }, 400);
     showToast(`${repo} is backgrounded.`, 'success');
   }
@@ -880,6 +900,7 @@
     if (!currentShellApp) return;
     const repo = currentShellApp.repoName;
     backgroundApps.delete(repo);
+    appsPlayingAudio.delete(repo);
     sphere?.setNodeBackground(repo, false);
     if (sphere) sphere.unlockFocus();
     if (shellHideTimeout) clearTimeout(shellHideTimeout);
@@ -896,6 +917,7 @@
 
       currentShellApp = null;
       shellHideTimeout = null;
+      updateAudioMuteState();
     }, 400);
     showToast(`${repo} closed.`, 'info');
     // Consume the history entry we pushed (button-close only, not back btn).
@@ -922,6 +944,13 @@
       const name = activePopupApp.repoName;
       await Store.unlinkApp(name);
       sphere?.removeNode(name);
+      backgroundApps.delete(name);
+      appsPlayingAudio.delete(name);
+      if (iframes.has(name)) {
+        iframes.get(name).remove();
+        iframes.delete(name);
+      }
+      updateAudioMuteState();
       hideNodePopup();
       showToast(`${name} unlinked.`, 'info');
       if (window.Auth) window.Auth.syncAll();
@@ -1041,6 +1070,16 @@
         const frame = iframes.get(sourceRepo);
         frame.contentWindow.postMessage({ type: 'PANOPTICON_LOAD', payload: state }, '*');
       }
+    }
+
+    if (type === 'PANOPTICON_AUDIO_PLAYING') {
+      const isPlaying = !!payload?.isPlaying;
+      if (isPlaying) {
+        appsPlayingAudio.add(sourceRepo);
+      } else {
+        appsPlayingAudio.delete(sourceRepo);
+      }
+      updateAudioMuteState();
     }
   });
 
