@@ -496,12 +496,15 @@
   function _initAudioOnGesture() {
     if (_audioInitDone) return;
     _audioInitDone = true;
-    AudioEngine.init();
+    AudioEngine.resumeAmbience();
     document.removeEventListener('click', _initAudioOnGesture);
     document.removeEventListener('touchstart', _initAudioOnGesture);
   }
   document.addEventListener('click', _initAudioOnGesture);
   document.addEventListener('touchstart', _initAudioOnGesture);
+
+  // Try to play immediately (some browsers/installed standalone PWAs allow autoplay)
+  AudioEngine.resumeAmbience();
 
   const styleSyncRefreshBtn = document.getElementById('style-sync-refresh-btn');
   if (styleSyncRefreshBtn) {

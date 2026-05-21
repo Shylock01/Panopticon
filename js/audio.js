@@ -6,6 +6,8 @@ window.AudioEngine = (() => {
   // ── State ──────────────────────────────────────────────────────────────────
   let _initialized = false;
   let _masterMuted = false;
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  let _mobileHiddenMuted = false;
 
   const _categories = {
     ambience: { volume: 0.5, muted: false },
@@ -55,6 +57,7 @@ window.AudioEngine = (() => {
 
   function _getEffectiveVolume(category) {
     if (_masterMuted || _categories[category].muted) return 0;
+    if (category === 'ambience' && _mobileHiddenMuted) return 0;
     return _categories[category].volume;
   }
 
@@ -368,6 +371,36 @@ window.AudioEngine = (() => {
 
     // Init pulse effect pool
     _initPulsePool();
+
+    // Handle mobile backgrounding page visibility API
+    if (isMobile) {
+      document.addEventListener('visibilitychange', () => {
+        _mobileHiddenMuted = document.hidden;
+        if (!document.hidden) {
+          // Try to play in case the mobile OS paused it in the background
+          _ambienceTracks.forEach(track => {
+            const activeEl = track.elements[track.activeIndex];
+            if (activeEl.paused) {
+              activeEl.play().catch(() => {});
+            }
+          });
+        }
+        _updateAmbienceVolume();
+      });
+    }
+  }
+
+  function resumeAmbience() {
+    if (!_initialized) {
+      init();
+      return;
+    }
+    _ambienceTracks.forEach(track => {
+      const activeEl = track.elements[track.activeIndex];
+      if (activeEl.paused) {
+        activeEl.play().catch(err => console.warn('Ambience play blocked:', err));
+      }
+    });
   }
 
   function playPulse() {
@@ -495,6 +528,7 @@ window.AudioEngine = (() => {
 
   return {
     init,
+    resumeAmbience,
     playPulse,
     playButton,
     setVolume,
