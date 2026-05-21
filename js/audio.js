@@ -232,12 +232,38 @@ window.AudioEngine = (() => {
     return impulse;
   }
 
+  function _createReversedBuffer(buffer) {
+    if (!buffer || !_audioCtx) return null;
+    try {
+      const numberOfChannels = buffer.numberOfChannels;
+      const length = buffer.length;
+      const sampleRate = buffer.sampleRate;
+      const reversedBuffer = _audioCtx.createBuffer(numberOfChannels, length, sampleRate);
+      
+      for (let channel = 0; channel < numberOfChannels; channel++) {
+        const srcData = buffer.getChannelData(channel);
+        const destData = reversedBuffer.getChannelData(channel);
+        for (let i = 0; i < length; i++) {
+          destData[i] = srcData[length - 1 - i];
+        }
+      }
+      return reversedBuffer;
+    } catch (e) {
+      console.warn("Failed to create reversed buffer:", e);
+      return null;
+    }
+  }
+
   async function _preloadBuffer(key, url) {
     try {
       const response = await fetch(url);
       const arrayBuffer = await response.arrayBuffer();
       const audioBuffer = await _audioCtx.decodeAudioData(arrayBuffer);
       _buffers[key] = audioBuffer;
+      
+      if (key === 'windowOpen') {
+        _buffers['windowClose'] = _createReversedBuffer(audioBuffer);
+      }
     } catch (err) {
       console.warn(`Web Audio preload failed for ${key} (${url}):`, err);
     }
@@ -700,6 +726,15 @@ window.AudioEngine = (() => {
     _windowOpenPoolIndex = (_windowOpenPoolIndex + 1) % WINDOW_OPEN_POOL_SIZE;
   }
 
+  function playWindowClose() {
+    if (!_initialized || _masterMuted || _categories.buttons.muted) return;
+    
+    // Attempt Web Audio API with convolution reverb and reversed buffer
+    if (_playUiSoundWithReverb('windowClose', 1.0)) {
+      return;
+    }
+  }
+
   function playAppOpen() {
     if (!_initialized || _masterMuted || _categories.buttons.muted) return;
     
@@ -883,6 +918,7 @@ window.AudioEngine = (() => {
     playClick,
     playSelect,
     playWindowOpen,
+    playWindowClose,
     playAppOpen,
     setVolume,
     setMute,

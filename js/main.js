@@ -333,6 +333,9 @@
   // Core visual close — no history manipulation.
   function hideTokenScreenCore() {
     tokenScreen.classList.remove('visible');
+    if (window.AudioEngine && typeof window.AudioEngine.playWindowClose === 'function') {
+      window.AudioEngine.playWindowClose();
+    }
     setTimeout(() => tokenScreen.setAttribute('hidden', ''), 400);
   }
   // silent=true: called from popHistoryLayer (back btn already consumed entry).
@@ -473,6 +476,9 @@
         }, 200);
       } else {
         soundtrackFloatTab.classList.remove('expanded');
+        if (window.AudioEngine && typeof window.AudioEngine.playWindowClose === 'function') {
+          window.AudioEngine.playWindowClose();
+        }
       }
     });
   }
@@ -648,6 +654,9 @@
   }
   function closeDrawer() {
     repoDrawer.classList.remove('open');
+    if (window.AudioEngine && typeof window.AudioEngine.playWindowClose === 'function') {
+      window.AudioEngine.playWindowClose();
+    }
     setTimeout(() => repoDrawer.setAttribute('hidden', ''), 350);
   }
 
