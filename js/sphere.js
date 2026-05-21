@@ -1188,6 +1188,10 @@ class PanopticonSphere {
     this._isHolding = true;
     this._holdStartTime = Date.now();
     this._holdCancelled = false;
+
+    if (window.AudioEngine && typeof window.AudioEngine.startHum === 'function') {
+      window.AudioEngine.startHum();
+    }
   }
 
   _move(x, y) {
@@ -1221,6 +1225,10 @@ class PanopticonSphere {
     
     // Reset zoom indicator
     if (this._ui.indicator) this._ui.indicator.setAttribute('hidden', '');
+
+    if (window.AudioEngine && typeof window.AudioEngine.stopHum === 'function') {
+      window.AudioEngine.stopHum();
+    }
   }
 
   _click(cx, cy) {
@@ -1305,6 +1313,15 @@ class PanopticonSphere {
           this._velTheta = this._velPhi = 0;
         }
       }
+    } else {
+      // --- Active Dragging Synthesizer Hum Sweeps ---
+      const dragSpeed = Math.hypot(this._velTheta, this._velPhi) * 18.0;
+      if (window.AudioEngine && typeof window.AudioEngine.updateHum === 'function') {
+        window.AudioEngine.updateHum(dragSpeed);
+      }
+      // Dampen velocity per frame while dragging so that holding still smoothly settles the pitch/volume back down to idle drone level
+      this._velTheta *= INERTIA_DAMP;
+      this._velPhi   *= INERTIA_DAMP;
     }
 
     // --- Zoom Revert & Locking Logic ---

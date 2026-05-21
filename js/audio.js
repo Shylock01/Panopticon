@@ -27,6 +27,15 @@ window.AudioEngine = (() => {
   let _webAudioSupported = false;
   let _webAudioInitialized = false;
 
+  // Real-Time Synthesizer Hum State
+  let _humOsc1 = null;
+  let _humOsc2 = null;
+  let _humFilter = null;
+  let _humGain = null;
+  let _humLfo = null;
+  let _humLfoGain = null;
+  let _humActive = false;
+
   // UI Sound Pools
   const CLICK_POOL_SIZE = 8;
   let _clickPool = [];
@@ -762,6 +771,174 @@ window.AudioEngine = (() => {
     }
   }
 
+  function startHum() {
+    if (_masterMuted || _categories.buttons.muted) return;
+    
+    // Lazy initialize Web Audio if not done yet
+    if (!_webAudioInitialized) {
+      _initWebAudio();
+    }
+    
+    if (!_webAudioInitialized || !_webAudioSupported) return;
+    
+    // If already active, don't start it again
+    if (_humActive) return;
+    _humActive = true;
+
+    try {
+      if (_audioCtx.state === 'suspended') {
+        _audioCtx.resume();
+      }
+      
+      const now = _audioCtx.currentTime;
+      
+      // Create main Gain Node for the hum
+      _humGain = _audioCtx.createGain();
+      _humGain.gain.setValueAtTime(0, now);
+      _humGain.gain.linearRampToValueAtTime(0.06, now + 0.15); // Warm, subtle holding drone volume
+      
+      // Create BiquadFilterNode (resonant low-pass filter)
+      _humFilter = _audioCtx.createBiquadFilter();
+      _humFilter.type = 'lowpass';
+      _humFilter.Q.setValueAtTime(6.0, now);
+      _humFilter.frequency.setValueAtTime(180, now); // Warm low-pass
+      
+      // Create Oscillator 1 (deep triangle base drone)
+      _humOsc1 = _audioCtx.createOscillator();
+      _humOsc1.type = 'triangle';
+      _humOsc1.frequency.setValueAtTime(65, now); // ~C2 note, deep hum
+      
+      // Create Oscillator 2 (buzzing sawtooth octave harmonic)
+      _humOsc2 = _audioCtx.createOscillator();
+      _humOsc2.type = 'sawtooth';
+      _humOsc2.frequency.setValueAtTime(130, now); // C3 octave
+      
+      // Create Gain Node for Oscillator 2 to blend its buzz in subtly
+      const osc2Gain = _audioCtx.createGain();
+      osc2Gain.gain.setValueAtTime(0.20, now); // 20% of base oscillator
+      
+      // Create LFO (Low-Frequency Oscillator) for classic lightsaber vibrato/wobble
+      _humLfo = _audioCtx.createOscillator();
+      _humLfo.type = 'sine';
+      _humLfo.frequency.setValueAtTime(8, now); // 8 Hz wobble rate
+      
+      // Create LFO Gain node to control modulation depth
+      _humLfoGain = _audioCtx.createGain();
+      _humLfoGain.gain.setValueAtTime(15, now); // +-15 Hz wobble depth
+      
+      // Connections
+      _humLfo.connect(_humLfoGain);
+      _humLfoGain.connect(_humOsc1.frequency);
+      _humLfoGain.connect(_humOsc2.frequency);
+      
+      _humOsc1.connect(_humFilter);
+      _humOsc2.connect(osc2Gain);
+      osc2Gain.connect(_humFilter);
+      
+      _humFilter.connect(_humGain);
+      _humGain.connect(_masterUiGainNode);
+      
+      // Start all oscillators
+      _humLfo.start(now);
+      _humOsc1.start(now);
+      _humOsc2.start(now);
+      
+    } catch (e) {
+      console.warn("Failed to start synth hum:", e);
+      _humActive = false;
+    }
+  }
+
+  function updateHum(speed) {
+    if (!_humActive || !_webAudioInitialized || !_webAudioSupported || !_audioCtx) return;
+    
+    try {
+      const now = _audioCtx.currentTime;
+      // Clamp speed between 0.0 (idle/holding) and 1.0 (maximum spin velocity)
+      const s = Math.max(0.0, Math.min(1.0, speed));
+      
+      // 1. Dynamic Pitch Sweep
+      const baseFreq = 65 + s * 65;
+      const harmonicFreq = 130 + s * 130;
+      
+      // 2. Dynamic Low-Pass Filter Cutoff Sweep
+      const filterCutoff = 180 + s * 720;
+      
+      // 3. Dynamic Volume Sweep
+      const targetVolume = 0.06 + s * 0.22;
+      
+      // 4. Dynamic LFO Modulation Speed & Depth Sweep
+      const lfoSpeed = 8 + s * 17;
+      const lfoDepth = 15 + s * 25;
+      
+      // Apply parameter changes smoothly using setTargetAtTime
+      const timeConstant = 0.1; // 100ms response time constant
+      
+      _humOsc1.frequency.setTargetAtTime(baseFreq, now, timeConstant);
+      _humOsc2.frequency.setTargetAtTime(harmonicFreq, now, timeConstant);
+      _humFilter.frequency.setTargetAtTime(filterCutoff, now, timeConstant);
+      _humGain.gain.setTargetAtTime(targetVolume, now, timeConstant);
+      _humLfo.frequency.setTargetAtTime(lfoSpeed, now, timeConstant);
+      _humLfoGain.gain.setTargetAtTime(lfoDepth, now, timeConstant);
+      
+    } catch (e) {
+      console.warn("Failed to update synth hum parameters:", e);
+    }
+  }
+
+  function stopHum() {
+    if (!_humActive) return;
+    _humActive = false;
+    
+    if (!_webAudioInitialized || !_webAudioSupported || !_audioCtx || !_humGain) return;
+    
+    try {
+      const now = _audioCtx.currentTime;
+      const fadeDuration = 0.25; // 250ms fade out to prevent clicking
+      
+      const osc1 = _humOsc1;
+      const osc2 = _humOsc2;
+      const lfo = _humLfo;
+      const gain = _humGain;
+      
+      _humOsc1 = null;
+      _humOsc2 = null;
+      _humLfo = null;
+      _humLfoGain = null;
+      _humFilter = null;
+      _humGain = null;
+      
+      gain.gain.cancelScheduledValues(now);
+      gain.gain.setValueAtTime(gain.gain.value, now);
+      gain.gain.linearRampToValueAtTime(0.001, now + fadeDuration);
+      
+      setTimeout(() => {
+        try {
+          if (osc1) {
+            osc1.stop();
+            osc1.disconnect();
+          }
+          if (osc2) {
+            osc2.stop();
+            osc2.disconnect();
+          }
+          if (lfo) {
+            lfo.stop();
+            lfo.disconnect();
+          }
+          if (gain) {
+            gain.disconnect();
+          }
+        } catch (e) {
+          // Ignore errors
+        }
+      }, fadeDuration * 1000 + 50);
+      
+    } catch (e) {
+      console.warn("Failed to stop synth hum:", e);
+    }
+  }
+
   function playButton() {
     playClick();
   }
@@ -932,6 +1109,9 @@ window.AudioEngine = (() => {
     playWindowClose,
     playAppOpen,
     playAppClose,
+    startHum,
+    updateHum,
+    stopHum,
     setVolume,
     setMute,
     setMasterMute,
