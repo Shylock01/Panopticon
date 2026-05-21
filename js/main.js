@@ -136,6 +136,30 @@
     }
   }
 
+  // Global Click Event for button sounds
+  document.addEventListener('click', (e) => {
+    const target = e.target.closest('button, .btn, .soundtrack-circle-btn, .settings-nav-item, .soundtrack-tab-handle, [role="button"], a.tab-link');
+    if (target) {
+      // Avoid playing the subtle button click sound if the action triggers a window-open or app-open sound
+      if (target.id === 'settings-btn' ||
+          target.id === 'add-app-btn' ||
+          target.id === 'popup-launch-btn' ||
+          target.id === 'popup-resume-btn') {
+        return;
+      }
+      if (target.classList.contains('soundtrack-tab-handle') || target.id === 'soundtrack-tab-handle') {
+        const isExpanding = !soundtrackFloatTab.classList.contains('expanded');
+        if (isExpanding) {
+          return;
+        }
+      }
+
+      if (window.AudioEngine && typeof window.AudioEngine.playClick === 'function') {
+        window.AudioEngine.playClick();
+      }
+    }
+  });
+
   // ─── Settings Tabs ────────────────────────────────────────────────────────
   document.querySelectorAll('.settings-nav-item').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -298,8 +322,13 @@
   // ─── Token screen ────────────────────────────────────────────────────────
   function showTokenScreen() {
     tokenScreen.removeAttribute('hidden');
-    requestAnimationFrame(() => tokenScreen.classList.add('visible'));
-    pushHistoryLayer('settings');
+    if (window.AudioEngine && typeof window.AudioEngine.playWindowOpen === 'function') {
+      window.AudioEngine.playWindowOpen();
+    }
+    setTimeout(() => {
+      tokenScreen.classList.add('visible');
+      pushHistoryLayer('settings');
+    }, 200);
   }
   // Core visual close — no history manipulation.
   function hideTokenScreenCore() {
@@ -434,7 +463,17 @@
   // Floating Soundtrack Tab event listeners
   if (soundtrackTabHandle) {
     soundtrackTabHandle.addEventListener('click', () => {
-      soundtrackFloatTab.classList.toggle('expanded');
+      const isExpanding = !soundtrackFloatTab.classList.contains('expanded');
+      if (isExpanding) {
+        if (window.AudioEngine && typeof window.AudioEngine.playWindowOpen === 'function') {
+          window.AudioEngine.playWindowOpen();
+        }
+        setTimeout(() => {
+          soundtrackFloatTab.classList.add('expanded');
+        }, 200);
+      } else {
+        soundtrackFloatTab.classList.remove('expanded');
+      }
     });
   }
 
@@ -599,8 +638,13 @@
 
   function openDrawer() {
     repoDrawer.removeAttribute('hidden');
-    requestAnimationFrame(() => repoDrawer.classList.add('open'));
-    loadRepos();
+    if (window.AudioEngine && typeof window.AudioEngine.playWindowOpen === 'function') {
+      window.AudioEngine.playWindowOpen();
+    }
+    setTimeout(() => {
+      repoDrawer.classList.add('open');
+      loadRepos();
+    }, 200);
   }
   function closeDrawer() {
     repoDrawer.classList.remove('open');
@@ -744,6 +788,10 @@
     requestAnimationFrame(() => nodePopup.classList.add('visible'));
     pushHistoryLayer('popup');
 
+    if (window.AudioEngine) {
+      if (typeof window.AudioEngine.playSelect === 'function') window.AudioEngine.playSelect();
+    }
+
     if (sphere) sphere.setFocusedNode(appEntry.repoName);
   }
 
@@ -795,6 +843,10 @@
     if (!appEntry) return;
     currentShellApp = appEntry;
     updateAudioMuteState();
+
+    if (window.AudioEngine && typeof window.AudioEngine.playAppOpen === 'function') {
+      window.AudioEngine.playAppOpen();
+    }
 
     if (sphere) sphere.lockFocus(appEntry.repoName);
 

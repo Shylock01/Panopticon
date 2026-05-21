@@ -11,6 +11,24 @@ window.AudioEngine = (() => {
   let _appMuted = false;
   let _soundtrackPausedByApp = false;
 
+  // UI Sound Pools
+  const CLICK_POOL_SIZE = 8;
+  let _clickPool = [];
+  let _clickPoolIndex = 0;
+
+  const SELECT_POOL_SIZE = 4;
+  let _selectPool = [];
+  let _selectPoolIndex = 0;
+
+  const WINDOW_OPEN_POOL_SIZE = 4;
+  let _windowOpenPool = [];
+  let _windowOpenPoolIndex = 0;
+
+  const APP_OPEN_POOL_SIZE = 4;
+  let _appOpenPool = [];
+  let _appOpenPoolIndex = 0;
+
+
 
   const _categories = {
     ambience: { volume: 0.5, muted: false },
@@ -59,7 +77,8 @@ window.AudioEngine = (() => {
   }
 
   function _getEffectiveVolume(category) {
-    if (_masterMuted || _categories[category].muted || _appMuted) return 0;
+    if (_masterMuted || _categories[category].muted) return 0;
+    if (_appMuted && category !== 'buttons') return 0;
     if (category === 'ambience' && _mobileHiddenMuted) return 0;
     return _categories[category].volume;
   }
@@ -180,6 +199,41 @@ window.AudioEngine = (() => {
       _pulsePool.push(a);
     }
   }
+
+  function _initUiSoundPools() {
+    _clickPool = [];
+    for (let i = 0; i < CLICK_POOL_SIZE; i++) {
+      const a = new Audio('audio/sound_click.wav');
+      a.preload = 'auto';
+      a.volume = _getEffectiveVolume('buttons') * 0.2;
+      _clickPool.push(a);
+    }
+
+    _selectPool = [];
+    for (let i = 0; i < SELECT_POOL_SIZE; i++) {
+      const a = new Audio('audio/sound_select.wav');
+      a.preload = 'auto';
+      a.volume = _getEffectiveVolume('buttons');
+      _selectPool.push(a);
+    }
+
+    _windowOpenPool = [];
+    for (let i = 0; i < WINDOW_OPEN_POOL_SIZE; i++) {
+      const a = new Audio('audio/sound_window_open.wav');
+      a.preload = 'auto';
+      a.volume = _getEffectiveVolume('buttons');
+      _windowOpenPool.push(a);
+    }
+
+    _appOpenPool = [];
+    for (let i = 0; i < APP_OPEN_POOL_SIZE; i++) {
+      const a = new Audio('audio/sound_app_open.wav');
+      a.preload = 'auto';
+      a.volume = _getEffectiveVolume('buttons');
+      _appOpenPool.push(a);
+    }
+  }
+
 
   // ── Soundtrack Player (YouTube IFrame API) ─────────────────────────────────
   let _ytPlayer = null;
@@ -390,6 +444,7 @@ window.AudioEngine = (() => {
 
     // Init pulse effect pool
     _initPulsePool();
+    _initUiSoundPools();
 
     // Handle mobile backgrounding page visibility API
     if (isMobile) {
@@ -432,10 +487,44 @@ window.AudioEngine = (() => {
     _pulsePoolIndex = (_pulsePoolIndex + 1) % PULSE_POOL_SIZE;
   }
 
-  function playButton() {
-    // Placeholder for future button sounds
+  function playClick() {
     if (!_initialized || _masterMuted || _categories.buttons.muted) return;
-    // No button sounds yet
+    const audio = _clickPool[_clickPoolIndex];
+    audio.volume = _getEffectiveVolume('buttons') * 0.2;
+    audio.currentTime = 0;
+    audio.play().catch(() => {});
+    _clickPoolIndex = (_clickPoolIndex + 1) % CLICK_POOL_SIZE;
+  }
+
+  function playSelect() {
+    if (!_initialized || _masterMuted || _categories.buttons.muted) return;
+    const audio = _selectPool[_selectPoolIndex];
+    audio.volume = _getEffectiveVolume('buttons');
+    audio.currentTime = 0;
+    audio.play().catch(() => {});
+    _selectPoolIndex = (_selectPoolIndex + 1) % SELECT_POOL_SIZE;
+  }
+
+  function playWindowOpen() {
+    if (!_initialized || _masterMuted || _categories.buttons.muted) return;
+    const audio = _windowOpenPool[_windowOpenPoolIndex];
+    audio.volume = _getEffectiveVolume('buttons');
+    audio.currentTime = 0;
+    audio.play().catch(() => {});
+    _windowOpenPoolIndex = (_windowOpenPoolIndex + 1) % WINDOW_OPEN_POOL_SIZE;
+  }
+
+  function playAppOpen() {
+    if (!_initialized || _masterMuted || _categories.buttons.muted) return;
+    const audio = _appOpenPool[_appOpenPoolIndex];
+    audio.volume = _getEffectiveVolume('buttons');
+    audio.currentTime = 0;
+    audio.play().catch(() => {});
+    _appOpenPoolIndex = (_appOpenPoolIndex + 1) % APP_OPEN_POOL_SIZE;
+  }
+
+  function playButton() {
+    playClick();
   }
 
   function setVolume(category, value) {
@@ -449,6 +538,11 @@ window.AudioEngine = (() => {
         if (a._fadeInterval) clearInterval(a._fadeInterval);
         a.volume = _getEffectiveVolume('effects');
       });
+    } else if (category === 'buttons') {
+      _clickPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * 0.2; });
+      _selectPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
+      _windowOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
+      _appOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
     } else if (category === 'soundtrack') {
       _updateYTVolume();
     }
@@ -465,6 +559,11 @@ window.AudioEngine = (() => {
         if (a._fadeInterval) clearInterval(a._fadeInterval);
         a.volume = _getEffectiveVolume('effects');
       });
+    } else if (category === 'buttons') {
+      _clickPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * 0.2; });
+      _selectPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
+      _windowOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
+      _appOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
     } else if (category === 'soundtrack') {
       _updateYTVolume();
       _dispatchSoundtrackState();
@@ -478,6 +577,10 @@ window.AudioEngine = (() => {
       if (a._fadeInterval) clearInterval(a._fadeInterval);
       a.volume = _getEffectiveVolume('effects');
     });
+    _clickPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * 0.2; });
+    _selectPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
+    _windowOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
+    _appOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
 
     if (_ytPlayer && typeof _ytPlayer.mute === 'function') {
       _updateYTVolume();
@@ -537,6 +640,10 @@ window.AudioEngine = (() => {
     if (_initialized) {
       _updateAmbienceVolume();
       _pulsePool.forEach(a => { a.volume = _getEffectiveVolume('effects'); });
+      _clickPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * 0.2; });
+      _selectPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
+      _windowOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
+      _appOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
       _updateYTVolume();
     }
     _dispatchSoundtrackState();
@@ -576,6 +683,10 @@ window.AudioEngine = (() => {
     resumeAmbience,
     playPulse,
     playButton,
+    playClick,
+    playSelect,
+    playWindowOpen,
+    playAppOpen,
     setVolume,
     setMute,
     setMasterMute,
