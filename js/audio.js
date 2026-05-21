@@ -30,10 +30,15 @@ window.AudioEngine = (() => {
   // Real-Time Synthesizer Hum State
   let _humOsc1 = null;
   let _humOsc2 = null;
+  let _humOsc3 = null;
+  let _humOsc2Gain = null;
+  let _humOsc3Gain = null;
   let _humFilter = null;
   let _humGain = null;
   let _humLfo = null;
   let _humLfoGain = null;
+  let _humFilterLfo = null;
+  let _humFilterLfoGain = null;
   let _humActive = false;
 
   // UI Sound Pools
@@ -795,53 +800,91 @@ window.AudioEngine = (() => {
       // Create main Gain Node for the hum
       _humGain = _audioCtx.createGain();
       _humGain.gain.setValueAtTime(0, now);
-      _humGain.gain.linearRampToValueAtTime(0.06, now + 0.15); // Warm, subtle holding drone volume
+      // Elevated idle drone volume (0.22 instead of 0.06) for strong presence at rest
+      _humGain.gain.linearRampToValueAtTime(0.22, now + 0.15);
       
       // Create BiquadFilterNode (resonant low-pass filter)
       _humFilter = _audioCtx.createBiquadFilter();
       _humFilter.type = 'lowpass';
-      _humFilter.Q.setValueAtTime(6.0, now);
-      _humFilter.frequency.setValueAtTime(180, now); // Warm low-pass
+      _humFilter.Q.setValueAtTime(4.0, now); // Warm, organic resonance at idle
+      _humFilter.frequency.setValueAtTime(220, now); // Warm low-pass cutoff frequency
       
-      // Create Oscillator 1 (deep triangle base drone)
+      // Create Oscillator 1 (deep sub-bass triangle base drone at 55Hz, ~A1 note)
       _humOsc1 = _audioCtx.createOscillator();
       _humOsc1.type = 'triangle';
-      _humOsc1.frequency.setValueAtTime(65, now); // ~C2 note, deep hum
+      _humOsc1.frequency.setValueAtTime(55, now);
       
-      // Create Oscillator 2 (buzzing sawtooth octave harmonic)
+      // Create Oscillator 2 (cybernetic sawtooth octave harmonic at 110Hz, detuned)
       _humOsc2 = _audioCtx.createOscillator();
       _humOsc2.type = 'sawtooth';
-      _humOsc2.frequency.setValueAtTime(130, now); // C3 octave
+      _humOsc2.frequency.setValueAtTime(110, now); // ~A2 octave
+      _humOsc2.detune.setValueAtTime(-8, now); // Detuned by -8 cents for natural chorus/beating
       
       // Create Gain Node for Oscillator 2 to blend its buzz in subtly
-      const osc2Gain = _audioCtx.createGain();
-      osc2Gain.gain.setValueAtTime(0.20, now); // 20% of base oscillator
+      _humOsc2Gain = _audioCtx.createGain();
+      _humOsc2Gain.gain.setValueAtTime(0.05, now); // Quiet, subtle textures at rest
       
-      // Create LFO (Low-Frequency Oscillator) for classic lightsaber vibrato/wobble
+      // Create Oscillator 3 (hollow cybernetic square fifth harmonic at 165Hz, detuned)
+      _humOsc3 = _audioCtx.createOscillator();
+      _humOsc3.type = 'square';
+      _humOsc3.frequency.setValueAtTime(165, now); // ~E3 perfect fifth harmonic
+      _humOsc3.detune.setValueAtTime(8, now); // Detuned by +8 cents
+      
+      // Create Gain Node for Oscillator 3 to blend its hollow tone in subtly
+      _humOsc3Gain = _audioCtx.createGain();
+      _humOsc3Gain.gain.setValueAtTime(0.02, now); // Barely audible at rest
+      
+      // Create LFO 1 (Low-Frequency Oscillator) for buzzing vibrato/wobble
       _humLfo = _audioCtx.createOscillator();
       _humLfo.type = 'sine';
-      _humLfo.frequency.setValueAtTime(8, now); // 8 Hz wobble rate
+      _humLfo.frequency.setValueAtTime(5.5, now); // 5.5 Hz pitch wobble rate at rest
       
       // Create LFO Gain node to control modulation depth
       _humLfoGain = _audioCtx.createGain();
-      _humLfoGain.gain.setValueAtTime(15, now); // +-15 Hz wobble depth
+      _humLfoGain.gain.setValueAtTime(12, now); // +-12 Hz pitch wobble depth
+      
+      // Create LFO 2 (Filter LFO) for organic "wah-wah" breathing pulsations
+      _humFilterLfo = _audioCtx.createOscillator();
+      _humFilterLfo.type = 'sine';
+      _humFilterLfo.frequency.setValueAtTime(1.8, now); // Slow 1.8 Hz throbbing rate at rest
+      
+      // Create Filter LFO Gain node to control cutoff sweep depth
+      _humFilterLfoGain = _audioCtx.createGain();
+      _humFilterLfoGain.gain.setValueAtTime(45, now); // +-45 Hz filter cutoff throb depth at rest
       
       // Connections
+      
+      // 1. Wobble LFO modulates Oscillator 2 and 3 pitches (deep base sub-bass remains solid and clean)
       _humLfo.connect(_humLfoGain);
-      _humLfoGain.connect(_humOsc1.frequency);
       _humLfoGain.connect(_humOsc2.frequency);
+      _humLfoGain.connect(_humOsc3.frequency);
       
+      // 2. Filter LFO modulates Filter Cutoff directly
+      _humFilterLfo.connect(_humFilterLfoGain);
+      _humFilterLfoGain.connect(_humFilter.frequency);
+      
+      // 3. Connect oscillators to low-pass filter
       _humOsc1.connect(_humFilter);
-      _humOsc2.connect(osc2Gain);
-      osc2Gain.connect(_humFilter);
       
+      _humOsc2.connect(_humOsc2Gain);
+      _humOsc2Gain.connect(_humFilter);
+      
+      _humOsc3.connect(_humOsc3Gain);
+      _humOsc3Gain.connect(_humFilter);
+      
+      // 4. Connect filter output to main hum gain
       _humFilter.connect(_humGain);
-      _humGain.connect(_masterUiGainNode);
       
-      // Start all oscillators
+      // 5. Connect hum gain to BOTH dry and wet/reverb nodes for massive spaciousness!
+      _humGain.connect(_dryGainNode);
+      _humGain.connect(_reverbNode);
+      
+      // Start all oscillators and LFOs
       _humLfo.start(now);
+      _humFilterLfo.start(now);
       _humOsc1.start(now);
       _humOsc2.start(now);
+      _humOsc3.start(now);
       
     } catch (e) {
       console.warn("Failed to start synth hum:", e);
@@ -857,29 +900,44 @@ window.AudioEngine = (() => {
       // Clamp speed between 0.0 (idle/holding) and 1.0 (maximum spin velocity)
       const s = Math.max(0.0, Math.min(1.0, speed));
       
-      // 1. Dynamic Pitch Sweep
-      const baseFreq = 65 + s * 65;
-      const harmonicFreq = 130 + s * 130;
+      // 1. Dynamic Pitch Sweep (minor drift to prevent car engine revving, keeping the bass low and powerful)
+      const baseFreq = 55 + s * 10; // 55 Hz -> 65 Hz
+      const harmonicFreq2 = 110 + s * 20; // 110 Hz -> 130 Hz
+      const harmonicFreq3 = 165 + s * 30; // 165 Hz -> 195 Hz
       
-      // 2. Dynamic Low-Pass Filter Cutoff Sweep
-      const filterCutoff = 180 + s * 720;
+      // 2. Timbral Buzz Swells (higher speed morphs to brighter, harsher crackles)
+      const osc2GainTarget = 0.05 + s * 0.30; // 5% -> 35% gain blend
+      const osc3GainTarget = 0.02 + s * 0.18; // 2% -> 20% gain blend
       
-      // 3. Dynamic Volume Sweep
-      const targetVolume = 0.06 + s * 0.22;
+      // 3. Dynamic Filter Cutoff & Resonance (Q) Sweeps (whistling electric plasma)
+      const filterCutoff = 220 + s * 980; // 220 Hz -> 1200 Hz
+      const filterQ = 4.0 + s * 6.0; // Q factor of 4.0 -> 10.0
       
-      // 4. Dynamic LFO Modulation Speed & Depth Sweep
-      const lfoSpeed = 8 + s * 17;
-      const lfoDepth = 15 + s * 25;
+      // 4. Dynamic Volume Swell
+      const targetVolume = 0.22 + s * 0.26; // 0.22 -> 0.48 volume range
+      
+      // 5. LFO Speed & Depth Sweeps (accelerating sweeps)
+      const wobbleLfoSpeed = 5.5 + s * 8.5; // 5.5 Hz -> 14 Hz wobble
+      const filterLfoSpeed = 1.8 + s * 3.7; // 1.8 Hz -> 5.5 Hz filter pulse rate
+      const filterLfoDepth = 45 + s * 155; // +-45 Hz -> +-200 Hz sweep depth
       
       // Apply parameter changes smoothly using setTargetAtTime
       const timeConstant = 0.1; // 100ms response time constant
       
       _humOsc1.frequency.setTargetAtTime(baseFreq, now, timeConstant);
-      _humOsc2.frequency.setTargetAtTime(harmonicFreq, now, timeConstant);
+      _humOsc2.frequency.setTargetAtTime(harmonicFreq2, now, timeConstant);
+      _humOsc3.frequency.setTargetAtTime(harmonicFreq3, now, timeConstant);
+      
+      _humOsc2Gain.gain.setTargetAtTime(osc2GainTarget, now, timeConstant);
+      _humOsc3Gain.gain.setTargetAtTime(osc3GainTarget, now, timeConstant);
+      
       _humFilter.frequency.setTargetAtTime(filterCutoff, now, timeConstant);
+      _humFilter.Q.setTargetAtTime(filterQ, now, timeConstant);
       _humGain.gain.setTargetAtTime(targetVolume, now, timeConstant);
-      _humLfo.frequency.setTargetAtTime(lfoSpeed, now, timeConstant);
-      _humLfoGain.gain.setTargetAtTime(lfoDepth, now, timeConstant);
+      
+      _humLfo.frequency.setTargetAtTime(wobbleLfoSpeed, now, timeConstant);
+      _humFilterLfo.frequency.setTargetAtTime(filterLfoSpeed, now, timeConstant);
+      _humFilterLfoGain.gain.setTargetAtTime(filterLfoDepth, now, timeConstant);
       
     } catch (e) {
       console.warn("Failed to update synth hum parameters:", e);
@@ -898,13 +956,25 @@ window.AudioEngine = (() => {
       
       const osc1 = _humOsc1;
       const osc2 = _humOsc2;
+      const osc3 = _humOsc3;
+      const osc2Gain = _humOsc2Gain;
+      const osc3Gain = _humOsc3Gain;
       const lfo = _humLfo;
+      const lfoGain = _humLfoGain;
+      const filterLfo = _humFilterLfo;
+      const filterLfoGain = _humFilterLfoGain;
+      const filter = _humFilter;
       const gain = _humGain;
       
       _humOsc1 = null;
       _humOsc2 = null;
+      _humOsc3 = null;
+      _humOsc2Gain = null;
+      _humOsc3Gain = null;
       _humLfo = null;
       _humLfoGain = null;
+      _humFilterLfo = null;
+      _humFilterLfoGain = null;
       _humFilter = null;
       _humGain = null;
       
@@ -922,9 +992,32 @@ window.AudioEngine = (() => {
             osc2.stop();
             osc2.disconnect();
           }
+          if (osc3) {
+            osc3.stop();
+            osc3.disconnect();
+          }
+          if (osc2Gain) {
+            osc2Gain.disconnect();
+          }
+          if (osc3Gain) {
+            osc3Gain.disconnect();
+          }
           if (lfo) {
             lfo.stop();
             lfo.disconnect();
+          }
+          if (lfoGain) {
+            lfoGain.disconnect();
+          }
+          if (filterLfo) {
+            filterLfo.stop();
+            filterLfo.disconnect();
+          }
+          if (filterLfoGain) {
+            filterLfoGain.disconnect();
+          }
+          if (filter) {
+            filter.disconnect();
           }
           if (gain) {
             gain.disconnect();
