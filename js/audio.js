@@ -40,6 +40,7 @@ window.AudioEngine = (() => {
   let _humFilterLfo = null;
   let _humFilterLfoGain = null;
   let _humActive = false;
+  let _lastHumSpeed = 0.0;
 
   // UI Sound Pools
   const CLICK_POOL_SIZE = 8;
@@ -777,8 +778,6 @@ window.AudioEngine = (() => {
   }
 
   function startHum() {
-    if (_masterMuted || _categories.buttons.muted) return;
-    
     // Lazy initialize Web Audio if not done yet
     if (!_webAudioInitialized) {
       _initWebAudio();
@@ -800,8 +799,9 @@ window.AudioEngine = (() => {
       // Create main Gain Node for the hum
       _humGain = _audioCtx.createGain();
       _humGain.gain.setValueAtTime(0, now);
-      // Elevated idle drone volume (0.22 instead of 0.06) for strong presence at rest
-      _humGain.gain.linearRampToValueAtTime(0.22, now + 0.15);
+      // Elevated idle drone volume (0.11 instead of 0.22, scaled by effects volume)
+      const effectsVol = _getEffectiveVolume('effects');
+      _humGain.gain.linearRampToValueAtTime(0.11 * effectsVol, now + 0.15);
       
       // Create BiquadFilterNode (resonant low-pass filter)
       _humFilter = _audioCtx.createBiquadFilter();
@@ -899,6 +899,7 @@ window.AudioEngine = (() => {
       const now = _audioCtx.currentTime;
       // Clamp speed between 0.0 (idle/holding) and 1.0 (maximum spin velocity)
       const s = Math.max(0.0, Math.min(1.0, speed));
+      _lastHumSpeed = s;
       
       // 1. Dynamic Pitch Sweep (extremely minor drift to keep the hum deep, low, and cybernetic)
       const baseFreq = 48 + s * 4; // 48 Hz -> 52 Hz (deep G1 sub-bass drone)
@@ -913,8 +914,9 @@ window.AudioEngine = (() => {
       const filterCutoff = 220 + s * 880; // 220 Hz -> 1100 Hz (warm and heavy)
       const filterQ = 4.0 + s * 4.0; // Q factor of 4.0 -> 8.0 (resonant whistling, but not too piercing)
       
-      // 4. Dynamic Volume Swell
-      const targetVolume = 0.22 + s * 0.26; // 0.22 -> 0.48 volume range
+      // 4. Dynamic Volume Swell (reduced by half and scaled by active effects volume slider)
+      const effectsVol = _getEffectiveVolume('effects');
+      const targetVolume = (0.11 + s * 0.13) * effectsVol;
       
       // 5. LFO Speed & Depth Sweeps (LFOs fade out at peak speed for a solid, steady sound!)
       const wobbleLfoSpeed = 5.5 + s * 4.5; // 5.5 Hz -> 10 Hz
@@ -1049,6 +1051,9 @@ window.AudioEngine = (() => {
         if (a._fadeInterval) clearInterval(a._fadeInterval);
         a.volume = _getEffectiveVolume('effects');
       });
+      if (_humActive) {
+        updateHum(_lastHumSpeed);
+      }
     } else if (category === 'buttons') {
       _clickPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * 0.2; });
       _selectPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
@@ -1071,6 +1076,9 @@ window.AudioEngine = (() => {
         if (a._fadeInterval) clearInterval(a._fadeInterval);
         a.volume = _getEffectiveVolume('effects');
       });
+      if (_humActive) {
+        updateHum(_lastHumSpeed);
+      }
     } else if (category === 'buttons') {
       _clickPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * 0.2; });
       _selectPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
@@ -1095,6 +1103,9 @@ window.AudioEngine = (() => {
     _windowOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
     _appOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
     _updateWebAudioButtonVolume();
+    if (_humActive) {
+      updateHum(_lastHumSpeed);
+    }
 
     if (_ytPlayer && typeof _ytPlayer.mute === 'function') {
       _updateYTVolume();
@@ -1170,6 +1181,9 @@ window.AudioEngine = (() => {
 
     _updateAmbienceVolume();
     _updateYTVolume();
+    if (_humActive) {
+      updateHum(_lastHumSpeed);
+    }
 
     if (_ytPlayer && typeof _ytPlayer.mute === 'function') {
       if (muted) {
