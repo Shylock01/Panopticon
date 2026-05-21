@@ -162,6 +162,22 @@ window.Store = (() => {
     await set('audio_config', config);
   }
 
+  async function getSoundtrackFile() {
+    return (await get('soundtrack_file')) || null;
+  }
+
+  async function saveSoundtrackFile(blob) {
+    await set('soundtrack_file', blob);
+  }
+
+  async function getSoundtrackFilename() {
+    return (await get('soundtrack_filename')) || '';
+  }
+
+  async function saveSoundtrackFilename(name) {
+    await set('soundtrack_filename', name);
+  }
+
   return { 
     getToken, saveToken, clearToken, 
     getLinkedApps, isLinked, linkApp, unlinkApp, 
@@ -169,6 +185,8 @@ window.Store = (() => {
     getAppState, setAppState,
     getZoom, saveZoom,
     getStyles, saveStyles,
-    getAudioConfig, saveAudioConfig
+    getAudioConfig, saveAudioConfig,
+    getSoundtrackFile, saveSoundtrackFile,
+    getSoundtrackFilename, saveSoundtrackFilename
   };
 })();

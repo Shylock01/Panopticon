@@ -109,6 +109,9 @@
   const audioSoundtrackUrl = document.getElementById('audio-soundtrack-url');
   const audioSoundtrackPlay = document.getElementById('audio-soundtrack-play');
   const audioSoundtrackPause = document.getElementById('audio-soundtrack-pause');
+  const audioSoundtrackFile = document.getElementById('audio-soundtrack-file');
+  const audioSoundtrackFileBtn = document.getElementById('audio-soundtrack-file-btn');
+  const audioSoundtrackFilename = document.getElementById('audio-soundtrack-filename');
 
   const backgroundApps = new Set(); // repoNames
 
@@ -237,7 +240,23 @@
       if (audioConfig.soundtrack) {
         audioVolSoundtrack.value = Math.round((audioConfig.soundtrack.volume || 0) * 100);
         audioMuteSoundtrack.checked = !audioConfig.soundtrack.muted;
-        audioSoundtrackUrl.value = audioConfig.soundtrack.url || '';
+        const rawUrl = audioConfig.soundtrack.url || '';
+        audioSoundtrackUrl.value = rawUrl === 'local' ? '' : rawUrl;
+
+        // Restore saved local soundtrack if it exists
+        const savedFilename = await Store.getSoundtrackFilename();
+        if (savedFilename) {
+          audioSoundtrackFilename.textContent = savedFilename;
+          audioSoundtrackFilename.removeAttribute('hidden');
+          const savedBlob = await Store.getSoundtrackFile();
+          if (savedBlob) {
+            AudioEngine.playSoundtrack(savedBlob);
+            AudioEngine.pauseSoundtrack();
+          }
+        } else if (rawUrl && rawUrl !== 'local') {
+          AudioEngine.playSoundtrack(rawUrl);
+          AudioEngine.pauseSoundtrack();
+        }
       }
     }
   }
@@ -404,17 +423,66 @@
     AudioEngine.setMute('soundtrack', !audioMuteSoundtrack.checked);
     autoSaveAudio();
   });
-  audioSoundtrackUrl.addEventListener('change', () => {
-    AudioEngine.applyConfig({ soundtrack: { url: audioSoundtrackUrl.value.trim() } });
+  // Handle direct audio URL inputs
+  audioSoundtrackUrl.addEventListener('input', async () => {
+    const url = audioSoundtrackUrl.value.trim();
+    if (url) {
+      // Clear any loaded local file state
+      audioSoundtrackFilename.setAttribute('hidden', '');
+      audioSoundtrackFilename.textContent = '';
+      await Store.saveSoundtrackFile(null);
+      await Store.saveSoundtrackFilename('');
+
+      AudioEngine.applyConfig({ soundtrack: { url: url } });
+      AudioEngine.playSoundtrack(url);
+      AudioEngine.pauseSoundtrack(); // Load but don't autoplay immediately
+      autoSaveAudio();
+    }
+  });
+
+  // Local File picker button click triggers the hidden input
+  audioSoundtrackFileBtn.addEventListener('click', () => {
+    audioSoundtrackFile.click();
+  });
+
+  // Handle local audio file selection
+  audioSoundtrackFile.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Display filename badge
+    audioSoundtrackFilename.textContent = file.name;
+    audioSoundtrackFilename.removeAttribute('hidden');
+
+    // Clear direct URL input
+    audioSoundtrackUrl.value = '';
+
+    // Save to IndexedDB KV Store
+    await Store.saveSoundtrackFile(file);
+    await Store.saveSoundtrackFilename(file.name);
+
+    // Initialize and play the native audio soundtrack
+    AudioEngine.playSoundtrack(file);
     autoSaveAudio();
   });
-  audioSoundtrackPlay.addEventListener('click', () => {
+
+  audioSoundtrackPlay.addEventListener('click', async () => {
+    // If a local file is loaded, play it
+    const savedBlob = await Store.getSoundtrackFile();
+    if (savedBlob) {
+      AudioEngine.playSoundtrack(savedBlob);
+      autoSaveAudio();
+      return;
+    }
+
+    // Otherwise, play from the pasted URL
     const url = audioSoundtrackUrl.value.trim();
     if (url) {
       AudioEngine.playSoundtrack(url);
       autoSaveAudio();
     }
   });
+
   audioSoundtrackPause.addEventListener('click', () => {
     AudioEngine.pauseSoundtrack();
     autoSaveAudio();

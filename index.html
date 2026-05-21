@@ -440,8 +440,20 @@
             <input type="range" id="audio-vol-soundtrack" class="audio-slider" min="0" max="100" step="1" value="50">
           </div>
 
-          <div class="soundtrack-youtube-section">
-            <input type="text" id="audio-soundtrack-url" placeholder="Paste YouTube URL..." class="soundtrack-url-input">
+          <div class="soundtrack-section">
+            <input type="text" id="audio-soundtrack-url" placeholder="Paste Direct Audio URL (e.g. .mp3)..." class="soundtrack-url-input">
+            <div class="soundtrack-picker-row">
+              <input type="file" id="audio-soundtrack-file" accept="audio/*" style="display: none;">
+              <button id="audio-soundtrack-file-btn" class="btn btn-outline btn-sm">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                Local File
+              </button>
+              <div id="audio-soundtrack-filename" class="soundtrack-filename" hidden></div>
+            </div>
             <div class="soundtrack-btn-row">
               <button id="audio-soundtrack-play" class="btn btn-primary btn-sm">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -559,9 +571,6 @@
     </div>
     <div id="frames-container" class="frames-container"></div>
   </div>
-
-  <!-- YouTube Hidden Player Container -->
-  <div id="youtube-player-container" style="position: absolute; width: 200px; height: 200px; left: -9999px; opacity: 0; pointer-events: none; overflow: hidden;"></div>
 
   <!-- ── Toast Notifications ───────────────────────────────────── -->
   <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="false"></div>
