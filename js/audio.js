@@ -85,16 +85,28 @@ window.AudioEngine = (() => {
     const crossfadeStart = effectiveEnd - CROSSFADE_DURATION;
 
     const check = () => {
+      // Safety: If this element is no longer the active track element,
+      // terminate this check loop immediately to prevent overlapping double-crossfades!
+      if (track.elements[track.activeIndex] !== el) {
+        return;
+      }
+
       if (el.currentTime >= crossfadeStart && !track.fading) {
         track.fading = true;
         _crossfadeAmbience(track);
+        return; // End this check loop
       }
+
       if (!el.paused && el.currentTime < effectiveEnd) {
         track.loopTimer = setTimeout(check, 100);
       }
     };
 
-    track.loopTimer = setTimeout(check, Math.max(0, (crossfadeStart - el.currentTime) * 1000 - 500));
+    // Calculate delay until crossfadeStart
+    const remainingTime = crossfadeStart - el.currentTime;
+    const delayMs = Math.max(0, remainingTime * 1000 - 500); // Start polling 500ms before crossfade
+
+    track.loopTimer = setTimeout(check, delayMs);
   }
 
   function _crossfadeAmbience(track) {
@@ -263,6 +275,7 @@ window.AudioEngine = (() => {
     };
   }
 
+  // Helper to sync volume levels when applying config dynamically
   function applyConfig(config) {
     if (!config) return;
     if (config.masterMuted !== undefined) _masterMuted = config.masterMuted;
