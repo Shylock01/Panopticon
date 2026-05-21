@@ -294,7 +294,7 @@ window.AudioEngine = (() => {
       _dryGainNode.connect(_masterUiGainNode);
       
       _wetGainNode = _audioCtx.createGain();
-      _wetGainNode.gain.value = 0.75; // Rich, prominent wet tail (up from 0.18)
+      _wetGainNode.gain.value = 0.525; // Rich, prominent wet tail (reduced by 30% from 0.75)
       _wetGainNode.connect(_masterUiGainNode);
       
       _reverbNode = _audioCtx.createConvolver();

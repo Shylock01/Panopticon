@@ -140,18 +140,21 @@
   document.addEventListener('click', (e) => {
     const target = e.target.closest('button, .btn, .soundtrack-circle-btn, .settings-nav-item, .soundtrack-tab-handle, [role="button"], a.tab-link');
     if (target) {
-      // Avoid playing the subtle button click sound if the action triggers a window-open or app-open sound
+      // Avoid playing the subtle button click sound if the action triggers a window/app open or close sound
       if (target.id === 'settings-btn' ||
           target.id === 'add-app-btn' ||
           target.id === 'popup-launch-btn' ||
-          target.id === 'popup-resume-btn') {
+          target.id === 'popup-resume-btn' ||
+          target.id === 'token-close-btn' ||
+          target.id === 'token-save-btn' ||
+          target.id === 'drawer-close-btn' ||
+          target.id === 'shell-close-btn' ||
+          target.id === 'shell-background-btn' ||
+          target.id === 'popup-terminate-btn' ||
+          target.id === 'soundtrack-close-btn' ||
+          target.id === 'soundtrack-tab-handle' ||
+          target.classList.contains('soundtrack-tab-handle')) {
         return;
-      }
-      if (target.classList.contains('soundtrack-tab-handle') || target.id === 'soundtrack-tab-handle') {
-        const isExpanding = !soundtrackFloatTab.classList.contains('expanded');
-        if (isExpanding) {
-          return;
-        }
       }
 
       if (window.AudioEngine && typeof window.AudioEngine.playClick === 'function') {
