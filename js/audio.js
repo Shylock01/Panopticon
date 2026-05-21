@@ -277,9 +277,10 @@ window.AudioEngine = (() => {
       container.appendChild(placeholder);
 
       _ytPlayer = new YT.Player('yt-player-placeholder', {
-        width: '72',
-        height: '40',
+        width: '300',
+        height: '168',
         videoId: videoId,
+        host: 'https://www.youtube-nocookie.com',
         playerVars: {
           autoplay: autoplay ? 1 : 0,
           controls: 0,
@@ -288,7 +289,9 @@ window.AudioEngine = (() => {
           modestbranding: 1,
           rel: 0,
           loop: 1,
-          playlist: videoId // looping on YT requires single-item playlist of the same video ID
+          playlist: videoId, // looping on YT requires single-item playlist of the same video ID
+          enablejsapi: 1,
+          origin: window.location.protocol === 'file:' ? undefined : window.location.origin
         },
         events: {
           onReady: (event) => {

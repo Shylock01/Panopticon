@@ -425,6 +425,9 @@
     soundtrackInitBtn.addEventListener('click', () => {
       const url = soundtrackYoutubeUrl.value.trim();
       if (url) {
+        if (window.location.protocol === 'file:') {
+          showToast('⚠️ YouTube API requires a local server. Please serve Panopticon via HTTP (e.g. "python -m http.server") for playback.', 'error');
+        }
         AudioEngine.playSoundtrack(url, true);
         soundtrackFloatTab.classList.add('initialized');
         soundtrackUninitView.setAttribute('hidden', '');

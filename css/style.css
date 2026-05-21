@@ -1695,9 +1695,12 @@ body:has(#node-popup.visible) .add-btn {
 }
 
 .soundtrack-video-container iframe {
-  width: 100%;
-  height: 100%;
+  width: 300px !important;
+  height: 168px !important;
+  transform: scale(0.24);
+  transform-origin: top left;
   border: none;
+  pointer-events: none;
 }
 
 .soundtrack-controls {
