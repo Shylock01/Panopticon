@@ -809,26 +809,26 @@ window.AudioEngine = (() => {
       _humFilter.Q.setValueAtTime(4.0, now); // Warm, organic resonance at idle
       _humFilter.frequency.setValueAtTime(220, now); // Warm low-pass cutoff frequency
       
-      // Create Oscillator 1 (deep sub-bass triangle base drone at 55Hz, ~A1 note)
+      // Create Oscillator 1 (deep sub-bass triangle base drone at 48Hz, ~G1 note for lower hum)
       _humOsc1 = _audioCtx.createOscillator();
       _humOsc1.type = 'triangle';
-      _humOsc1.frequency.setValueAtTime(55, now);
+      _humOsc1.frequency.setValueAtTime(48, now);
       
-      // Create Oscillator 2 (cybernetic sawtooth octave harmonic at 110Hz, detuned)
+      // Create Oscillator 2 (cybernetic sawtooth octave harmonic at 96Hz, detuned)
       _humOsc2 = _audioCtx.createOscillator();
       _humOsc2.type = 'sawtooth';
-      _humOsc2.frequency.setValueAtTime(110, now); // ~A2 octave
-      _humOsc2.detune.setValueAtTime(-8, now); // Detuned by -8 cents for natural chorus/beating
+      _humOsc2.frequency.setValueAtTime(96, now); // ~G2 octave
+      _humOsc2.detune.setValueAtTime(-6, now); // Detuned by -6 cents for natural beating
       
       // Create Gain Node for Oscillator 2 to blend its buzz in subtly
       _humOsc2Gain = _audioCtx.createGain();
       _humOsc2Gain.gain.setValueAtTime(0.05, now); // Quiet, subtle textures at rest
       
-      // Create Oscillator 3 (hollow cybernetic square fifth harmonic at 165Hz, detuned)
+      // Create Oscillator 3 (hollow cybernetic square fifth harmonic at 144Hz, detuned)
       _humOsc3 = _audioCtx.createOscillator();
       _humOsc3.type = 'square';
-      _humOsc3.frequency.setValueAtTime(165, now); // ~E3 perfect fifth harmonic
-      _humOsc3.detune.setValueAtTime(8, now); // Detuned by +8 cents
+      _humOsc3.frequency.setValueAtTime(144, now); // ~D3 perfect fifth harmonic
+      _humOsc3.detune.setValueAtTime(6, now); // Detuned by +6 cents
       
       // Create Gain Node for Oscillator 3 to blend its hollow tone in subtly
       _humOsc3Gain = _audioCtx.createGain();
@@ -841,7 +841,7 @@ window.AudioEngine = (() => {
       
       // Create LFO Gain node to control modulation depth
       _humLfoGain = _audioCtx.createGain();
-      _humLfoGain.gain.setValueAtTime(12, now); // +-12 Hz pitch wobble depth
+      _humLfoGain.gain.setValueAtTime(12, now); // +-12 Hz pitch wobble depth at rest
       
       // Create LFO 2 (Filter LFO) for organic "wah-wah" breathing pulsations
       _humFilterLfo = _audioCtx.createOscillator();
@@ -900,26 +900,28 @@ window.AudioEngine = (() => {
       // Clamp speed between 0.0 (idle/holding) and 1.0 (maximum spin velocity)
       const s = Math.max(0.0, Math.min(1.0, speed));
       
-      // 1. Dynamic Pitch Sweep (minor drift to prevent car engine revving, keeping the bass low and powerful)
-      const baseFreq = 55 + s * 10; // 55 Hz -> 65 Hz
-      const harmonicFreq2 = 110 + s * 20; // 110 Hz -> 130 Hz
-      const harmonicFreq3 = 165 + s * 30; // 165 Hz -> 195 Hz
+      // 1. Dynamic Pitch Sweep (extremely minor drift to keep the hum deep, low, and cybernetic)
+      const baseFreq = 48 + s * 4; // 48 Hz -> 52 Hz (deep G1 sub-bass drone)
+      const harmonicFreq2 = 96 + s * 8; // 96 Hz -> 104 Hz
+      const harmonicFreq3 = 144 + s * 12; // 144 Hz -> 156 Hz
       
       // 2. Timbral Buzz Swells (higher speed morphs to brighter, harsher crackles)
-      const osc2GainTarget = 0.05 + s * 0.30; // 5% -> 35% gain blend
-      const osc3GainTarget = 0.02 + s * 0.18; // 2% -> 20% gain blend
+      const osc2GainTarget = 0.05 + s * 0.35; // 5% -> 40% gain blend
+      const osc3GainTarget = 0.02 + s * 0.20; // 2% -> 22% gain blend
       
-      // 3. Dynamic Filter Cutoff & Resonance (Q) Sweeps (whistling electric plasma)
-      const filterCutoff = 220 + s * 980; // 220 Hz -> 1200 Hz
-      const filterQ = 4.0 + s * 6.0; // Q factor of 4.0 -> 10.0
+      // 3. Dynamic Filter Cutoff & Resonance (Q) Sweeps (smoothly opening up filter)
+      const filterCutoff = 220 + s * 880; // 220 Hz -> 1100 Hz (warm and heavy)
+      const filterQ = 4.0 + s * 4.0; // Q factor of 4.0 -> 8.0 (resonant whistling, but not too piercing)
       
       // 4. Dynamic Volume Swell
       const targetVolume = 0.22 + s * 0.26; // 0.22 -> 0.48 volume range
       
-      // 5. LFO Speed & Depth Sweeps (accelerating sweeps)
-      const wobbleLfoSpeed = 5.5 + s * 8.5; // 5.5 Hz -> 14 Hz wobble
-      const filterLfoSpeed = 1.8 + s * 3.7; // 1.8 Hz -> 5.5 Hz filter pulse rate
-      const filterLfoDepth = 45 + s * 155; // +-45 Hz -> +-200 Hz sweep depth
+      // 5. LFO Speed & Depth Sweeps (LFOs fade out at peak speed for a solid, steady sound!)
+      const wobbleLfoSpeed = 5.5 + s * 4.5; // 5.5 Hz -> 10 Hz
+      const wobbleLfoDepth = 12 * (1.0 - s); // 12 Hz -> 0 Hz depth (wobble fades out completely at peak!)
+      
+      const filterLfoSpeed = 1.8 + s * 2.2; // 1.8 Hz -> 4 Hz
+      const filterLfoDepth = 45 * (1.0 - s); // 45 Hz -> 0 Hz depth (filter throb fades out completely at peak!)
       
       // Apply parameter changes smoothly using setTargetAtTime
       const timeConstant = 0.1; // 100ms response time constant
