@@ -116,6 +116,7 @@
   const soundtrackInitBtn = document.getElementById('soundtrack-init-btn');
   const soundtrackPlayPauseBtn = document.getElementById('soundtrack-play-pause-btn');
   const soundtrackCloseBtn = document.getElementById('soundtrack-close-btn');
+  const soundtrackVisualizer = document.getElementById('soundtrack-visualizer');
 
   const backgroundApps = new Set(); // repoNames
 
@@ -477,6 +478,14 @@
       } else {
         if (playIcon) playIcon.removeAttribute('hidden');
         if (pauseIcon) pauseIcon.setAttribute('hidden', '');
+      }
+    }
+    
+    if (soundtrackVisualizer) {
+      if (isPlaying) {
+        soundtrackVisualizer.classList.add('playing');
+      } else {
+        soundtrackVisualizer.classList.remove('playing');
       }
     }
   });
