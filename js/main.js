@@ -136,38 +136,7 @@
     }
   }
 
-  // Adjust app-shell when on-screen keyboard is open
-  function setupVisualViewportTracker() {
-    const vv = window.visualViewport;
-    if (!vv) return;
 
-    let lastWidth = vv.width;
-    let maxHeight = vv.height;
-
-    const handleResize = () => {
-      // If width changed significantly, it's an orientation change. Reset our maximum height baseline.
-      if (Math.abs(vv.width - lastWidth) > 10) {
-        lastWidth = vv.width;
-        maxHeight = vv.height;
-      } else if (vv.height > maxHeight) {
-        maxHeight = vv.height;
-      }
-
-      // Detect if keyboard is open (visual viewport height is significantly less than baseline maximum observed height)
-      const isKeyboard = (maxHeight - vv.height) > 100;
-
-      if (isKeyboard) {
-        // Shrink the app shell to exactly fit the visible area above the digital keyboard
-        appShell.style.height = `${vv.height}px`;
-      } else {
-        // Reset to CSS default (100%)
-        appShell.style.height = '';
-      }
-    };
-
-    vv.addEventListener('resize', handleResize);
-    vv.addEventListener('scroll', handleResize);
-  }
 
   // Global Click Event for button sounds
   document.addEventListener('click', (e) => {
@@ -273,7 +242,6 @@
     } catch (e) {
       console.error('Failed to load version:', e);
     }
-    setupVisualViewportTracker();
   }
 
   async function initStyles() {
