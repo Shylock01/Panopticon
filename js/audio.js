@@ -12,6 +12,19 @@ window.AudioEngine = (() => {
   let _soundtrackPausedByApp = false;
 
   const _individualVolumes = {
+    click: 50,
+    select: 50,
+    windowOpen: 50,
+    appOpen: 50,
+    refresh: 50,
+    pulse: 50,
+    hum: 50,
+    ambience1: 50,
+    ambience2: 50,
+    powerOn: 50
+  };
+
+  const BASELINES = {
     click: 0.2,
     select: 1.0,
     windowOpen: 1.0,
@@ -23,6 +36,12 @@ window.AudioEngine = (() => {
     ambience2: 0.3,
     powerOn: 1.0
   };
+
+  function _getMultiplier(key) {
+    const val = _individualVolumes[key] !== undefined ? _individualVolumes[key] : 50;
+    const baseline = BASELINES[key] !== undefined ? BASELINES[key] : 1.0;
+    return (val / 50) * baseline;
+  }
 
   // Web Audio API State for Premium Reverb
   let _audioCtx = null;
@@ -384,8 +403,7 @@ window.AudioEngine = (() => {
       source.buffer = buffer;
       
       const individualKey = key === 'windowClose' ? 'windowOpen' : key;
-      const individualMult = _individualVolumes[individualKey] !== undefined ? _individualVolumes[individualKey] : 1.0;
-      const finalVol = volMultiplier * individualMult;
+      const finalVol = volMultiplier * _getMultiplier(individualKey);
       
       if (finalVol !== 1.0) {
         const sourceGain = _audioCtx.createGain();
@@ -417,7 +435,7 @@ window.AudioEngine = (() => {
     for (let i = 0; i < PULSE_POOL_SIZE; i++) {
       const a = new Audio('audio/pulse_effect.mp3');
       a.preload = 'auto';
-      a.volume = _getEffectiveVolume('effects');
+      a.volume = _getEffectiveVolume('effects') * _getMultiplier('pulse');
       _pulsePool.push(a);
     }
   }
@@ -427,7 +445,7 @@ window.AudioEngine = (() => {
     for (let i = 0; i < CLICK_POOL_SIZE; i++) {
       const a = new Audio('audio/sound_click.wav');
       a.preload = 'auto';
-      a.volume = _getEffectiveVolume('buttons') * 0.2;
+      a.volume = _getEffectiveVolume('buttons') * _getMultiplier('click');
       _clickPool.push(a);
     }
 
@@ -435,7 +453,7 @@ window.AudioEngine = (() => {
     for (let i = 0; i < SELECT_POOL_SIZE; i++) {
       const a = new Audio('audio/sound_select.wav');
       a.preload = 'auto';
-      a.volume = _getEffectiveVolume('buttons');
+      a.volume = _getEffectiveVolume('buttons') * _getMultiplier('select');
       _selectPool.push(a);
     }
 
@@ -443,7 +461,7 @@ window.AudioEngine = (() => {
     for (let i = 0; i < WINDOW_OPEN_POOL_SIZE; i++) {
       const a = new Audio('audio/sound_window_open.wav');
       a.preload = 'auto';
-      a.volume = _getEffectiveVolume('buttons');
+      a.volume = _getEffectiveVolume('buttons') * _getMultiplier('windowOpen');
       _windowOpenPool.push(a);
     }
 
@@ -451,7 +469,7 @@ window.AudioEngine = (() => {
     for (let i = 0; i < APP_OPEN_POOL_SIZE; i++) {
       const a = new Audio('audio/sound_app_open.wav');
       a.preload = 'auto';
-      a.volume = _getEffectiveVolume('buttons') * _individualVolumes.appOpen;
+      a.volume = _getEffectiveVolume('buttons') * _getMultiplier('appOpen');
       _appOpenPool.push(a);
     }
 
@@ -459,7 +477,7 @@ window.AudioEngine = (() => {
     for (let i = 0; i < REFRESH_POOL_SIZE; i++) {
       const a = new Audio('audio/refresh.wav');
       a.preload = 'auto';
-      a.volume = _getEffectiveVolume('buttons');
+      a.volume = _getEffectiveVolume('buttons') * _getMultiplier('refresh');
       _refreshPool.push(a);
     }
   }
@@ -726,7 +744,7 @@ window.AudioEngine = (() => {
     if (!_initialized || _masterMuted || _categories.effects.muted) return;
 
     const audio = _pulsePool[_pulsePoolIndex];
-    audio.volume = _getEffectiveVolume('effects') * _individualVolumes.pulse;
+    audio.volume = _getEffectiveVolume('effects') * _getMultiplier('pulse');
     audio.currentTime = 0;
     audio.play().catch(() => {});
     _pulsePoolIndex = (_pulsePoolIndex + 1) % PULSE_POOL_SIZE;
@@ -742,7 +760,7 @@ window.AudioEngine = (() => {
     
     // Legacy HTML5 Audio Pool Fallback
     const audio = _refreshPool[_refreshPoolIndex];
-    audio.volume = _getEffectiveVolume('buttons') * _individualVolumes.refresh;
+    audio.volume = _getEffectiveVolume('buttons') * _getMultiplier('refresh');
     audio.currentTime = 0;
     audio.play().catch(() => {});
     _refreshPoolIndex = (_refreshPoolIndex + 1) % REFRESH_POOL_SIZE;
@@ -758,7 +776,7 @@ window.AudioEngine = (() => {
     
     // Legacy HTML5 Audio Pool Fallback
     const audio = _clickPool[_clickPoolIndex];
-    audio.volume = _getEffectiveVolume('buttons') * _individualVolumes.click;
+    audio.volume = _getEffectiveVolume('buttons') * _getMultiplier('click');
     audio.currentTime = 0;
     audio.play().catch(() => {});
     _clickPoolIndex = (_clickPoolIndex + 1) % CLICK_POOL_SIZE;
@@ -774,7 +792,7 @@ window.AudioEngine = (() => {
     
     // Legacy HTML5 Audio Pool Fallback
     const audio = _selectPool[_selectPoolIndex];
-    audio.volume = _getEffectiveVolume('buttons') * _individualVolumes.select;
+    audio.volume = _getEffectiveVolume('buttons') * _getMultiplier('select');
     audio.currentTime = 0;
     audio.play().catch(() => {});
     _selectPoolIndex = (_selectPoolIndex + 1) % SELECT_POOL_SIZE;
@@ -790,7 +808,7 @@ window.AudioEngine = (() => {
     
     // Legacy HTML5 Audio Pool Fallback
     const audio = _windowOpenPool[_windowOpenPoolIndex];
-    audio.volume = _getEffectiveVolume('buttons') * _individualVolumes.windowOpen;
+    audio.volume = _getEffectiveVolume('buttons') * _getMultiplier('windowOpen');
     audio.currentTime = 0;
     audio.play().catch(() => {});
     _windowOpenPoolIndex = (_windowOpenPoolIndex + 1) % WINDOW_OPEN_POOL_SIZE;
@@ -815,7 +833,7 @@ window.AudioEngine = (() => {
     
     // Legacy HTML5 Audio Pool Fallback
     const audio = _appOpenPool[_appOpenPoolIndex];
-    audio.volume = _getEffectiveVolume('buttons') * _individualVolumes.appOpen;
+    audio.volume = _getEffectiveVolume('buttons') * _getMultiplier('appOpen');
     audio.currentTime = 0;
     audio.play().catch(() => {});
     _appOpenPoolIndex = (_appOpenPoolIndex + 1) % APP_OPEN_POOL_SIZE;
@@ -840,7 +858,7 @@ window.AudioEngine = (() => {
     
     // Legacy HTML5 Audio Fallback
     const audio = new Audio('audio/power_on.mp3');
-    audio.volume = _getEffectiveVolume('buttons') * _individualVolumes.powerOn;
+    audio.volume = _getEffectiveVolume('buttons') * _getMultiplier('powerOn');
     audio.play().catch(() => {});
   }
 
@@ -868,7 +886,7 @@ window.AudioEngine = (() => {
       _humGain.gain.setValueAtTime(0, now);
       // Elevated idle drone volume (0.11 instead of 0.22, scaled by effects volume)
       const effectsVol = _getEffectiveVolume('effects');
-      _humGain.gain.linearRampToValueAtTime(0.11 * effectsVol * _individualVolumes.hum, now + 0.15);
+      _humGain.gain.linearRampToValueAtTime(0.11 * effectsVol * _getMultiplier('hum'), now + 0.15);
       
       // Create BiquadFilterNode (resonant low-pass filter)
       _humFilter = _audioCtx.createBiquadFilter();
@@ -983,7 +1001,7 @@ window.AudioEngine = (() => {
       
       // 4. Dynamic Volume Swell (reduced by half and scaled by active effects volume slider)
       const effectsVol = _getEffectiveVolume('effects');
-      const targetVolume = (0.11 + s * 0.13) * effectsVol * _individualVolumes.hum;
+      const targetVolume = (0.11 + s * 0.13) * effectsVol * _getMultiplier('hum');
       
       // 5. LFO Speed & Depth Sweeps (LFOs fade out at peak speed for a solid, steady sound!)
       const wobbleLfoSpeed = 5.5 + s * 4.5; // 5.5 Hz -> 10 Hz
@@ -1116,17 +1134,17 @@ window.AudioEngine = (() => {
     } else if (category === 'effects') {
       _pulsePool.forEach(a => {
         if (a._fadeInterval) clearInterval(a._fadeInterval);
-        a.volume = _getEffectiveVolume('effects') * _individualVolumes.pulse;
+        a.volume = _getEffectiveVolume('effects') * _getMultiplier('pulse');
       });
       if (_humActive) {
         updateHum(_lastHumSpeed);
       }
     } else if (category === 'buttons') {
-      _clickPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _individualVolumes.click; });
-      _selectPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _individualVolumes.select; });
-      _windowOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _individualVolumes.windowOpen; });
-      _appOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _individualVolumes.appOpen; });
-      _refreshPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _individualVolumes.refresh; });
+      _clickPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _getMultiplier('click'); });
+      _selectPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _getMultiplier('select'); });
+      _windowOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _getMultiplier('windowOpen'); });
+      _appOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _getMultiplier('appOpen'); });
+      _refreshPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _getMultiplier('refresh'); });
       _updateWebAudioButtonVolume();
     } else if (category === 'soundtrack') {
       _updateYTVolume();
@@ -1142,17 +1160,17 @@ window.AudioEngine = (() => {
     } else if (category === 'effects') {
       _pulsePool.forEach(a => {
         if (a._fadeInterval) clearInterval(a._fadeInterval);
-        a.volume = _getEffectiveVolume('effects') * _individualVolumes.pulse;
+        a.volume = _getEffectiveVolume('effects') * _getMultiplier('pulse');
       });
       if (_humActive) {
         updateHum(_lastHumSpeed);
       }
     } else if (category === 'buttons') {
-      _clickPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _individualVolumes.click; });
-      _selectPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _individualVolumes.select; });
-      _windowOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _individualVolumes.windowOpen; });
-      _appOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _individualVolumes.appOpen; });
-      _refreshPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _individualVolumes.refresh; });
+      _clickPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _getMultiplier('click'); });
+      _selectPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _getMultiplier('select'); });
+      _windowOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _getMultiplier('windowOpen'); });
+      _appOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _getMultiplier('appOpen'); });
+      _refreshPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _getMultiplier('refresh'); });
       _updateWebAudioButtonVolume();
     } else if (category === 'soundtrack') {
       _updateYTVolume();
@@ -1165,13 +1183,13 @@ window.AudioEngine = (() => {
     _updateAmbienceVolume();
     _pulsePool.forEach(a => {
       if (a._fadeInterval) clearInterval(a._fadeInterval);
-      a.volume = _getEffectiveVolume('effects') * _individualVolumes.pulse;
+      a.volume = _getEffectiveVolume('effects') * _getMultiplier('pulse');
     });
-    _clickPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _individualVolumes.click; });
-    _selectPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _individualVolumes.select; });
-    _windowOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _individualVolumes.windowOpen; });
-    _appOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _individualVolumes.appOpen; });
-    _refreshPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _individualVolumes.refresh; });
+    _clickPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _getMultiplier('click'); });
+    _selectPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _getMultiplier('select'); });
+    _windowOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _getMultiplier('windowOpen'); });
+    _appOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _getMultiplier('appOpen'); });
+    _refreshPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _getMultiplier('refresh'); });
     _updateWebAudioButtonVolume();
     if (_humActive) {
       updateHum(_lastHumSpeed);
@@ -1194,7 +1212,7 @@ window.AudioEngine = (() => {
       const activeEl = track.elements[track.activeIndex];
       if (!activeEl.paused) {
         // Smoothly fade to the new volume over 0.5s to prevent pops!
-        const mult = track.src.includes('ambience_1') ? _individualVolumes.ambience1 : _individualVolumes.ambience2;
+        const mult = track.src.includes('ambience_1') ? _getMultiplier('ambience1') : _getMultiplier('ambience2');
         _fadeVolume(activeEl, activeEl.volume, vol * mult, 0.5);
       }
     });
@@ -1239,12 +1257,12 @@ window.AudioEngine = (() => {
     // Update live volumes if already initialized
     if (_initialized) {
       _updateAmbienceVolume();
-      _pulsePool.forEach(a => { a.volume = _getEffectiveVolume('effects') * _individualVolumes.pulse; });
-      _clickPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _individualVolumes.click; });
-      _selectPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _individualVolumes.select; });
-      _windowOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _individualVolumes.windowOpen; });
-      _appOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _individualVolumes.appOpen; });
-      _refreshPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _individualVolumes.refresh; });
+      _pulsePool.forEach(a => { a.volume = _getEffectiveVolume('effects') * _getMultiplier('pulse'); });
+      _clickPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _getMultiplier('click'); });
+      _selectPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _getMultiplier('select'); });
+      _windowOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _getMultiplier('windowOpen'); });
+      _appOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _getMultiplier('appOpen'); });
+      _refreshPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _getMultiplier('refresh'); });
       _updateWebAudioButtonVolume();
       _updateYTVolume();
     }
@@ -1282,25 +1300,25 @@ window.AudioEngine = (() => {
 
   function setIndividualVolume(key, value) {
     if (_individualVolumes[key] === undefined) return;
-    _individualVolumes[key] = Math.max(0, Math.min(2.0, value)); // Allow up to 200% scaling boost
+    _individualVolumes[key] = Math.max(0, Math.min(100, value)); // Store 0-100 percentage directly
 
     // Dynamically update the specific sound levels in real-time
     if (!_initialized) return;
 
     if (key === 'click') {
-      _clickPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _individualVolumes.click; });
+      _clickPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _getMultiplier('click'); });
     } else if (key === 'select') {
-      _selectPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _individualVolumes.select; });
+      _selectPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _getMultiplier('select'); });
     } else if (key === 'windowOpen') {
-      _windowOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _individualVolumes.windowOpen; });
+      _windowOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _getMultiplier('windowOpen'); });
     } else if (key === 'appOpen') {
-      _appOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _individualVolumes.appOpen; });
+      _appOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _getMultiplier('appOpen'); });
     } else if (key === 'refresh') {
-      _refreshPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _individualVolumes.refresh; });
+      _refreshPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _getMultiplier('refresh'); });
     } else if (key === 'powerOn') {
       // Played one-shot at boot, no pool updates required
     } else if (key === 'pulse') {
-      _pulsePool.forEach(a => { a.volume = _getEffectiveVolume('effects') * _individualVolumes.pulse; });
+      _pulsePool.forEach(a => { a.volume = _getEffectiveVolume('effects') * _getMultiplier('pulse'); });
     } else if (key === 'hum') {
       if (_humActive) {
         updateHum(_lastHumSpeed);

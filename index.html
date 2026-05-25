@@ -613,27 +613,33 @@
       <p class="audio-adv-desc">Fine-tune individual volume offsets for each sound asset in Panopticon.</p>
 
       <div class="audio-adv-scroll-container">
-        <!-- Click Sound -->
+        <!-- Click Feedback -->
         <div class="audio-adv-row">
           <div class="audio-adv-label-wrap">
             <span class="audio-adv-name">Click Feedback</span>
             <span class="audio-adv-file-info">sound_click.wav</span>
           </div>
           <div class="audio-adv-control">
-            <input type="range" id="adv-vol-click" class="audio-slider" min="0" max="100" step="1" value="20">
-            <span id="adv-val-click" class="audio-adv-val">20%</span>
+            <div class="slider-wrapper">
+              <input type="range" id="adv-vol-click" class="audio-slider" min="0" max="100" step="1" value="50">
+              <div class="slider-tic"></div>
+            </div>
+            <span id="adv-val-click" class="audio-adv-val">50%</span>
           </div>
         </div>
 
-        <!-- Select Sound -->
+        <!-- Node Selection -->
         <div class="audio-adv-row">
           <div class="audio-adv-label-wrap">
             <span class="audio-adv-name">Node Selection</span>
             <span class="audio-adv-file-info">sound_select.wav</span>
           </div>
           <div class="audio-adv-control">
-            <input type="range" id="adv-vol-select" class="audio-slider" min="0" max="100" step="1" value="100">
-            <span id="adv-val-select" class="audio-adv-val">100%</span>
+            <div class="slider-wrapper">
+              <input type="range" id="adv-vol-select" class="audio-slider" min="0" max="100" step="1" value="50">
+              <div class="slider-tic"></div>
+            </div>
+            <span id="adv-val-select" class="audio-adv-val">50%</span>
           </div>
         </div>
 
@@ -644,8 +650,11 @@
             <span class="audio-adv-file-info">sound_window_open.wav (normal & reversed)</span>
           </div>
           <div class="audio-adv-control">
-            <input type="range" id="adv-vol-windowOpen" class="audio-slider" min="0" max="100" step="1" value="100">
-            <span id="adv-val-windowOpen" class="audio-adv-val">100%</span>
+            <div class="slider-wrapper">
+              <input type="range" id="adv-vol-windowOpen" class="audio-slider" min="0" max="100" step="1" value="50">
+              <div class="slider-tic"></div>
+            </div>
+            <span id="adv-val-windowOpen" class="audio-adv-val">50%</span>
           </div>
         </div>
 
@@ -656,8 +665,11 @@
             <span class="audio-adv-file-info">sound_app_open.wav</span>
           </div>
           <div class="audio-adv-control">
-            <input type="range" id="adv-vol-appOpen" class="audio-slider" min="0" max="100" step="1" value="100">
-            <span id="adv-val-appOpen" class="audio-adv-val">100%</span>
+            <div class="slider-wrapper">
+              <input type="range" id="adv-vol-appOpen" class="audio-slider" min="0" max="100" step="1" value="50">
+              <div class="slider-tic"></div>
+            </div>
+            <span id="adv-val-appOpen" class="audio-adv-val">50%</span>
           </div>
         </div>
 
@@ -668,8 +680,11 @@
             <span class="audio-adv-file-info">power_on.mp3</span>
           </div>
           <div class="audio-adv-control">
-            <input type="range" id="adv-vol-powerOn" class="audio-slider" min="0" max="100" step="1" value="100">
-            <span id="adv-val-powerOn" class="audio-adv-val">100%</span>
+            <div class="slider-wrapper">
+              <input type="range" id="adv-vol-powerOn" class="audio-slider" min="0" max="100" step="1" value="50">
+              <div class="slider-tic"></div>
+            </div>
+            <span id="adv-val-powerOn" class="audio-adv-val">50%</span>
           </div>
         </div>
 
@@ -680,8 +695,11 @@
             <span class="audio-adv-file-info">refresh.wav</span>
           </div>
           <div class="audio-adv-control">
-            <input type="range" id="adv-vol-refresh" class="audio-slider" min="0" max="100" step="1" value="100">
-            <span id="adv-val-refresh" class="audio-adv-val">100%</span>
+            <div class="slider-wrapper">
+              <input type="range" id="adv-vol-refresh" class="audio-slider" min="0" max="100" step="1" value="50">
+              <div class="slider-tic"></div>
+            </div>
+            <span id="adv-val-refresh" class="audio-adv-val">50%</span>
           </div>
         </div>
 
@@ -692,8 +710,11 @@
             <span class="audio-adv-file-info">pulse_effect.mp3</span>
           </div>
           <div class="audio-adv-control">
-            <input type="range" id="adv-vol-pulse" class="audio-slider" min="0" max="100" step="1" value="100">
-            <span id="adv-val-pulse" class="audio-adv-val">100%</span>
+            <div class="slider-wrapper">
+              <input type="range" id="adv-vol-pulse" class="audio-slider" min="0" max="100" step="1" value="50">
+              <div class="slider-tic"></div>
+            </div>
+            <span id="adv-val-pulse" class="audio-adv-val">50%</span>
           </div>
         </div>
 
@@ -704,8 +725,11 @@
             <span class="audio-adv-file-info">synthesizer hum</span>
           </div>
           <div class="audio-adv-control">
-            <input type="range" id="adv-vol-hum" class="audio-slider" min="0" max="100" step="1" value="100">
-            <span id="adv-val-hum" class="audio-adv-val">100%</span>
+            <div class="slider-wrapper">
+              <input type="range" id="adv-vol-hum" class="audio-slider" min="0" max="100" step="1" value="50">
+              <div class="slider-tic"></div>
+            </div>
+            <span id="adv-val-hum" class="audio-adv-val">50%</span>
           </div>
         </div>
 
@@ -716,8 +740,11 @@
             <span class="audio-adv-file-info">ambience_1.mp3</span>
           </div>
           <div class="audio-adv-control">
-            <input type="range" id="adv-vol-ambience1" class="audio-slider" min="0" max="100" step="1" value="100">
-            <span id="adv-val-ambience1" class="audio-adv-val">100%</span>
+            <div class="slider-wrapper">
+              <input type="range" id="adv-vol-ambience1" class="audio-slider" min="0" max="100" step="1" value="50">
+              <div class="slider-tic"></div>
+            </div>
+            <span id="adv-val-ambience1" class="audio-adv-val">50%</span>
           </div>
         </div>
 
@@ -728,8 +755,11 @@
             <span class="audio-adv-file-info">ambience_2.mp3</span>
           </div>
           <div class="audio-adv-control">
-            <input type="range" id="adv-vol-ambience2" class="audio-slider" min="0" max="100" step="1" value="30">
-            <span id="adv-val-ambience2" class="audio-adv-val">30%</span>
+            <div class="slider-wrapper">
+              <input type="range" id="adv-vol-ambience2" class="audio-slider" min="0" max="100" step="1" value="50">
+              <div class="slider-tic"></div>
+            </div>
+            <span id="adv-val-ambience2" class="audio-adv-val">50%</span>
           </div>
         </div>
       </div>

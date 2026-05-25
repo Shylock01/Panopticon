@@ -607,7 +607,7 @@
         const val = parseInt(item.slider.value);
         if (item.valBadge) item.valBadge.textContent = val + '%';
         if (window.AudioEngine && typeof window.AudioEngine.setIndividualVolume === 'function') {
-          window.AudioEngine.setIndividualVolume(item.key, val / 100);
+          window.AudioEngine.setIndividualVolume(item.key, val);
         }
       });
     }
@@ -616,25 +616,25 @@
   if (audioAdvResetBtn) {
     audioAdvResetBtn.addEventListener('click', () => {
       const defaults = {
-        click: 20,
-        select: 100,
-        windowOpen: 100,
-        appOpen: 100,
-        powerOn: 100,
-        refresh: 100,
-        pulse: 100,
-        hum: 100,
-        ambience1: 100,
-        ambience2: 30
+        click: 50,
+        select: 50,
+        windowOpen: 50,
+        appOpen: 50,
+        powerOn: 50,
+        refresh: 50,
+        pulse: 50,
+        hum: 50,
+        ambience1: 50,
+        ambience2: 50
       };
 
       advancedSliders.forEach(item => {
         if (item.slider) {
-          const defVal = defaults[item.key] !== undefined ? defaults[item.key] : 100;
+          const defVal = defaults[item.key] !== undefined ? defaults[item.key] : 50;
           item.slider.value = defVal;
           if (item.valBadge) item.valBadge.textContent = defVal + '%';
           if (window.AudioEngine && typeof window.AudioEngine.setIndividualVolume === 'function') {
-            window.AudioEngine.setIndividualVolume(item.key, defVal / 100);
+            window.AudioEngine.setIndividualVolume(item.key, defVal);
           }
         }
       });
@@ -659,8 +659,7 @@
     
     advancedSliders.forEach(item => {
       if (item.slider) {
-        const factor = vols[item.key] !== undefined ? vols[item.key] : 1.0;
-        const val = Math.round(factor * 100);
+        const val = vols[item.key] !== undefined ? vols[item.key] : 50;
         item.slider.value = val;
         if (item.valBadge) item.valBadge.textContent = val + '%';
       }

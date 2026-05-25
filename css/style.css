@@ -1961,8 +1961,28 @@ body:has(#node-popup.visible) .add-btn {
   gap: 12px;
 }
 
-.audio-adv-control .audio-slider {
+.slider-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
   flex: 1;
+}
+
+.slider-wrapper .audio-slider {
+  width: 100%;
+}
+
+.slider-tic {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 10px;
+  background: var(--text-secondary);
+  opacity: 0.5;
+  pointer-events: none;
+  z-index: 1;
 }
 
 .audio-adv-val {
