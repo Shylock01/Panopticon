@@ -1326,11 +1326,14 @@
     if (!event.data || typeof event.data !== 'object') return;
     const { type, payload } = event.data;
 
-    let sourceRepo = null;
-    for (const [repo, frame] of iframes.entries()) {
-      if (frame.contentWindow === event.source) {
-        sourceRepo = repo;
-        break;
+    // Process-isolation safe source identification (cross-origin Chromium Site Isolation resilient)
+    let sourceRepo = payload?.repoName || null;
+    if (!sourceRepo) {
+      for (const [repo, frame] of iframes.entries()) {
+        if (frame.contentWindow === event.source) {
+          sourceRepo = repo;
+          break;
+        }
       }
     }
 
