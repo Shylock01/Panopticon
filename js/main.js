@@ -169,6 +169,19 @@
       } else {
         appShell.style.height = '';
       }
+
+      // Broadcast visual viewport metrics to the active iframe (cross-origin safe!)
+      const activeFrame = currentShellApp ? iframes.get(currentShellApp.repoName) : null;
+      if (activeFrame && activeFrame.contentWindow) {
+        activeFrame.contentWindow.postMessage({
+          type: 'PANOPTICON_VIEWPORT_RESIZE',
+          payload: {
+            height: vv.height,
+            offsetTop: vv.offsetTop,
+            width: vv.width
+          }
+        }, '*');
+      }
     };
 
     vv.addEventListener('resize', handleResize);
