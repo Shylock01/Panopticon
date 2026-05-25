@@ -20,7 +20,8 @@ window.AudioEngine = (() => {
     pulse: 1.0,
     hum: 1.0,
     ambience1: 1.0,
-    ambience2: 0.3
+    ambience2: 0.3,
+    powerOn: 1.0
   };
 
   // Web Audio API State for Premium Reverb
@@ -34,8 +35,9 @@ window.AudioEngine = (() => {
     click: 'audio/sound_click.wav',
     select: 'audio/sound_select.wav',
     windowOpen: 'audio/sound_window_open.wav',
-    appOpen: 'audio/power_on.mp3',
-    refresh: 'audio/refresh.wav'
+    appOpen: 'audio/sound_app_open.wav',
+    refresh: 'audio/refresh.wav',
+    powerOn: 'audio/power_on.mp3'
   };
   let _webAudioSupported = false;
   let _webAudioInitialized = false;
@@ -447,9 +449,9 @@ window.AudioEngine = (() => {
 
     _appOpenPool = [];
     for (let i = 0; i < APP_OPEN_POOL_SIZE; i++) {
-      const a = new Audio('audio/power_on.mp3');
+      const a = new Audio('audio/sound_app_open.wav');
       a.preload = 'auto';
-      a.volume = _getEffectiveVolume('buttons');
+      a.volume = _getEffectiveVolume('buttons') * _individualVolumes.appOpen;
       _appOpenPool.push(a);
     }
 
@@ -677,6 +679,11 @@ window.AudioEngine = (() => {
     _initPulsePool();
     _initUiSoundPools();
 
+    // Play startup power_on sound
+    setTimeout(() => {
+      playPowerOn();
+    }, 100);
+
     // Handle mobile backgrounding page visibility API
     if (isMobile) {
       document.addEventListener('visibilitychange', () => {
@@ -821,6 +828,20 @@ window.AudioEngine = (() => {
     if (_playUiSoundWithReverb('windowClose', 1.0)) {
       return;
     }
+  }
+
+  function playPowerOn() {
+    if (!_initialized || _masterMuted || _categories.buttons.muted) return;
+    
+    // Attempt Web Audio API with convolution reverb
+    if (_playUiSoundWithReverb('powerOn', 1.0)) {
+      return;
+    }
+    
+    // Legacy HTML5 Audio Fallback
+    const audio = new Audio('audio/power_on.mp3');
+    audio.volume = _getEffectiveVolume('buttons') * _individualVolumes.powerOn;
+    audio.play().catch(() => {});
   }
 
   function startHum() {
@@ -1276,6 +1297,8 @@ window.AudioEngine = (() => {
       _appOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _individualVolumes.appOpen; });
     } else if (key === 'refresh') {
       _refreshPool.forEach(a => { a.volume = _getEffectiveVolume('buttons') * _individualVolumes.refresh; });
+    } else if (key === 'powerOn') {
+      // Played one-shot at boot, no pool updates required
     } else if (key === 'pulse') {
       _pulsePool.forEach(a => { a.volume = _getEffectiveVolume('effects') * _individualVolumes.pulse; });
     } else if (key === 'hum') {
@@ -1301,6 +1324,7 @@ window.AudioEngine = (() => {
     playButton,
     playClick,
     playRefresh,
+    playPowerOn,
     playSelect,
     playWindowOpen,
     playWindowClose,

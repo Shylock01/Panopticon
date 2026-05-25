@@ -1,6 +1,6 @@
-// sw.js v2.1.18
-const VERSION = '2.1.18';
-const CACHE_NAME = 'panopticon-v2.1.18';
+// sw.js v2.1.19
+const VERSION = '2.1.19';
+const CACHE_NAME = 'panopticon-v2.1.19';
 const ASSETS = [
   './',
   'index.html',
@@ -23,6 +23,7 @@ const ASSETS = [
   'audio/sound_click.wav',
   'audio/sound_select.wav',
   'audio/sound_window_open.wav',
+  'audio/sound_app_open.wav',
   'audio/power_on.mp3',
   'audio/refresh.wav'
 ];

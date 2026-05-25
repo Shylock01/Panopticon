@@ -119,6 +119,7 @@
   const advVolSelect = document.getElementById('adv-vol-select');
   const advVolWindowOpen = document.getElementById('adv-vol-windowOpen');
   const advVolAppOpen = document.getElementById('adv-vol-appOpen');
+  const advVolPowerOn = document.getElementById('adv-vol-powerOn');
   const advVolRefresh = document.getElementById('adv-vol-refresh');
   const advVolPulse = document.getElementById('adv-vol-pulse');
   const advVolHum = document.getElementById('adv-vol-hum');
@@ -129,6 +130,7 @@
   const advValSelect = document.getElementById('adv-val-select');
   const advValWindowOpen = document.getElementById('adv-val-windowOpen');
   const advValAppOpen = document.getElementById('adv-val-appOpen');
+  const advValPowerOn = document.getElementById('adv-val-powerOn');
   const advValRefresh = document.getElementById('adv-val-refresh');
   const advValPulse = document.getElementById('adv-val-pulse');
   const advValHum = document.getElementById('adv-val-hum');
@@ -591,6 +593,7 @@
     { key: 'select', slider: advVolSelect, valBadge: advValSelect },
     { key: 'windowOpen', slider: advVolWindowOpen, valBadge: advValWindowOpen },
     { key: 'appOpen', slider: advVolAppOpen, valBadge: advValAppOpen },
+    { key: 'powerOn', slider: advVolPowerOn, valBadge: advValPowerOn },
     { key: 'refresh', slider: advVolRefresh, valBadge: advValRefresh },
     { key: 'pulse', slider: advVolPulse, valBadge: advValPulse },
     { key: 'hum', slider: advVolHum, valBadge: advValHum },
@@ -617,6 +620,7 @@
         select: 100,
         windowOpen: 100,
         appOpen: 100,
+        powerOn: 100,
         refresh: 100,
         pulse: 100,
         hum: 100,
