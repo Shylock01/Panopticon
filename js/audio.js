@@ -16,7 +16,6 @@ window.AudioEngine = (() => {
     select: 1.0,
     windowOpen: 1.0,
     appOpen: 1.0,
-    windowClose: 1.0,
     refresh: 1.0,
     pulse: 1.0,
     hum: 1.0,
@@ -382,7 +381,8 @@ window.AudioEngine = (() => {
       const source = _audioCtx.createBufferSource();
       source.buffer = buffer;
       
-      const individualMult = _individualVolumes[key] !== undefined ? _individualVolumes[key] : 1.0;
+      const individualKey = key === 'windowClose' ? 'windowOpen' : key;
+      const individualMult = _individualVolumes[individualKey] !== undefined ? _individualVolumes[individualKey] : 1.0;
       const finalVol = volMultiplier * individualMult;
       
       if (finalVol !== 1.0) {
@@ -719,7 +719,7 @@ window.AudioEngine = (() => {
     if (!_initialized || _masterMuted || _categories.effects.muted) return;
 
     const audio = _pulsePool[_pulsePoolIndex];
-    audio.volume = _getEffectiveVolume('effects');
+    audio.volume = _getEffectiveVolume('effects') * _individualVolumes.pulse;
     audio.currentTime = 0;
     audio.play().catch(() => {});
     _pulsePoolIndex = (_pulsePoolIndex + 1) % PULSE_POOL_SIZE;
