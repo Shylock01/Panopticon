@@ -136,6 +136,48 @@
     }
   }
 
+  // Adjust app-shell when on-screen keyboard is open, only if opted in
+  const appKeyboardModes = new Map(); // repoName -> 'shrink' | 'overlay'
+
+  function setupVisualViewportTracker() {
+    const vv = window.visualViewport;
+    if (!vv) return;
+
+    let lastWidth = vv.width;
+    let maxHeight = vv.height;
+
+    const handleResize = () => {
+      // If width changed significantly, it's an orientation change. Reset baseline.
+      if (Math.abs(vv.width - lastWidth) > 10) {
+        lastWidth = vv.width;
+        maxHeight = vv.height;
+      } else if (vv.height > maxHeight) {
+        maxHeight = vv.height;
+      }
+
+      // Shrink layout ONLY if the active app has explicitly opted in
+      const currentRepo = currentShellApp?.repoName;
+      const mode = currentRepo ? (appKeyboardModes.get(currentRepo) || 'overlay') : 'overlay';
+
+      if (mode === 'shrink') {
+        const isKeyboard = (maxHeight - vv.height) > 100;
+        if (isKeyboard) {
+          appShell.style.height = `${vv.height}px`;
+        } else {
+          appShell.style.height = '';
+        }
+      } else {
+        appShell.style.height = '';
+      }
+    };
+
+    vv.addEventListener('resize', handleResize);
+    vv.addEventListener('scroll', handleResize);
+
+    // Expose dynamically so message events can trigger updates immediately
+    window.PanopticonViewportResize = handleResize;
+  }
+
 
 
   // Global Click Event for button sounds
@@ -242,6 +284,7 @@
     } catch (e) {
       console.error('Failed to load version:', e);
     }
+    setupVisualViewportTracker();
   }
 
   async function initStyles() {
@@ -948,6 +991,7 @@
     sphere?.setNodeBackground(repo, true);
     if (sphere) sphere.unlockFocus();
     if (shellHideTimeout) clearTimeout(shellHideTimeout);
+    appShell.style.height = '';
     appShell.classList.add('app-shell--hiding');
     shellHideTimeout = setTimeout(() => {
       appShell.setAttribute('hidden', '');
@@ -981,6 +1025,7 @@
     if (sphere) sphere.unlockFocus();
     if (shellHideTimeout) clearTimeout(shellHideTimeout);
 
+    appShell.style.height = '';
     appShell.classList.add('app-shell--hiding');
     shellHideTimeout = setTimeout(() => {
       appShell.setAttribute('hidden', '');
@@ -1156,6 +1201,14 @@
         appsPlayingAudio.delete(sourceRepo);
       }
       updateAudioMuteState();
+    }
+
+    if (type === 'PANOPTICON_SET_KEYBOARD_MODE') {
+      const mode = payload?.mode || 'overlay';
+      appKeyboardModes.set(sourceRepo, mode);
+      if (typeof window.PanopticonViewportResize === 'function') {
+        window.PanopticonViewportResize();
+      }
     }
   });
 
