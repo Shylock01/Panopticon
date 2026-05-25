@@ -197,7 +197,8 @@
           target.id === 'popup-terminate-btn' ||
           target.id === 'soundtrack-close-btn' ||
           target.id === 'soundtrack-tab-handle' ||
-          target.classList.contains('soundtrack-tab-handle')) {
+          target.classList.contains('soundtrack-tab-handle') ||
+          target.id === 'popup-refresh-btn') {
         return;
       }
 
@@ -1134,6 +1135,9 @@
     if (!activePopupApp) return;
     const repo = activePopupApp;
     popupRefreshBtn.classList.add('spin-anim');
+    if (window.AudioEngine && typeof window.AudioEngine.playRefresh === 'function') {
+      window.AudioEngine.playRefresh();
+    }
     try {
       let manifestIconUrl = null;
       if (GH.fetchAppMeta) {

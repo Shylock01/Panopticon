@@ -22,7 +22,8 @@ window.AudioEngine = (() => {
     click: 'audio/sound_click.wav',
     select: 'audio/sound_select.wav',
     windowOpen: 'audio/sound_window_open.wav',
-    appOpen: 'audio/sound_app_open.wav'
+    appOpen: 'audio/power_on.mp3',
+    refresh: 'audio/refresh.wav'
   };
   let _webAudioSupported = false;
   let _webAudioInitialized = false;
@@ -59,6 +60,9 @@ window.AudioEngine = (() => {
   let _appOpenPool = [];
   let _appOpenPoolIndex = 0;
 
+  const REFRESH_POOL_SIZE = 4;
+  let _refreshPool = [];
+  let _refreshPoolIndex = 0;
 
 
   const _categories = {
@@ -425,10 +429,18 @@ window.AudioEngine = (() => {
 
     _appOpenPool = [];
     for (let i = 0; i < APP_OPEN_POOL_SIZE; i++) {
-      const a = new Audio('audio/sound_app_open.wav');
+      const a = new Audio('audio/power_on.mp3');
       a.preload = 'auto';
       a.volume = _getEffectiveVolume('buttons');
       _appOpenPool.push(a);
+    }
+
+    _refreshPool = [];
+    for (let i = 0; i < REFRESH_POOL_SIZE; i++) {
+      const a = new Audio('audio/refresh.wav');
+      a.preload = 'auto';
+      a.volume = _getEffectiveVolume('buttons');
+      _refreshPool.push(a);
     }
   }
 
@@ -693,6 +705,22 @@ window.AudioEngine = (() => {
     audio.currentTime = 0;
     audio.play().catch(() => {});
     _pulsePoolIndex = (_pulsePoolIndex + 1) % PULSE_POOL_SIZE;
+  }
+
+  function playRefresh() {
+    if (!_initialized || _masterMuted || _categories.buttons.muted) return;
+    
+    // Attempt Web Audio API with convolution reverb
+    if (_playUiSoundWithReverb('refresh', 1.0)) {
+      return;
+    }
+    
+    // Legacy HTML5 Audio Pool Fallback
+    const audio = _refreshPool[_refreshPoolIndex];
+    audio.volume = _getEffectiveVolume('buttons');
+    audio.currentTime = 0;
+    audio.play().catch(() => {});
+    _refreshPoolIndex = (_refreshPoolIndex + 1) % REFRESH_POOL_SIZE;
   }
 
   function playClick() {
@@ -1059,6 +1087,7 @@ window.AudioEngine = (() => {
       _selectPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
       _windowOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
       _appOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
+      _refreshPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
       _updateWebAudioButtonVolume();
     } else if (category === 'soundtrack') {
       _updateYTVolume();
@@ -1084,6 +1113,7 @@ window.AudioEngine = (() => {
       _selectPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
       _windowOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
       _appOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
+      _refreshPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
       _updateWebAudioButtonVolume();
     } else if (category === 'soundtrack') {
       _updateYTVolume();
@@ -1102,6 +1132,7 @@ window.AudioEngine = (() => {
     _selectPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
     _windowOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
     _appOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
+    _refreshPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
     _updateWebAudioButtonVolume();
     if (_humActive) {
       updateHum(_lastHumSpeed);
@@ -1169,6 +1200,7 @@ window.AudioEngine = (() => {
       _selectPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
       _windowOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
       _appOpenPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
+      _refreshPool.forEach(a => { a.volume = _getEffectiveVolume('buttons'); });
       _updateWebAudioButtonVolume();
       _updateYTVolume();
     }
@@ -1213,6 +1245,7 @@ window.AudioEngine = (() => {
     playPulse,
     playButton,
     playClick,
+    playRefresh,
     playSelect,
     playWindowOpen,
     playWindowClose,
