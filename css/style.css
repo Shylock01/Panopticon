@@ -1852,3 +1852,124 @@ body:has(#node-popup.visible) .add-btn {
 .switch .slider.round:before {
   border-radius: 50%;
 }
+
+/* ── Audio Advanced Controls Modal ── */
+.audio-advanced-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 250; /* Above the settings modal */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--bg) 95%, transparent);
+  backdrop-filter: blur(20px);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+.audio-advanced-modal[hidden] { display: none; }
+.audio-advanced-modal.visible { opacity: 1; pointer-events: all; }
+
+.audio-adv-card {
+  position: relative;
+  width: min(440px, calc(100vw - 40px));
+  max-height: min(650px, calc(100vh - 40px));
+  background: var(--surface);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--radius-lg);
+  padding: 32px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: var(--shadow-glass), 0 0 60px var(--accent-glow);
+  animation: cardIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.audio-adv-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-align: center;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  margin-top: 8px;
+}
+
+.audio-adv-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-align: center;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.audio-adv-scroll-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  padding-right: 6px;
+  flex: 1;
+}
+
+/* Custom Scrollbar for Advanced Controls */
+.audio-adv-scroll-container::-webkit-scrollbar {
+  width: 5px;
+}
+.audio-adv-scroll-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+.audio-adv-scroll-container::-webkit-scrollbar-thumb {
+  background: var(--border-bright);
+  border-radius: 4px;
+}
+.audio-adv-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+.audio-adv-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+}
+
+.audio-adv-label-wrap {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.audio-adv-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.audio-adv-file-info {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-family: monospace;
+}
+
+.audio-adv-control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.audio-adv-control .audio-slider {
+  flex: 1;
+}
+
+.audio-adv-val {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  width: 36px;
+  text-align: right;
+}
+

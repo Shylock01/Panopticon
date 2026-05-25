@@ -107,6 +107,36 @@
   const audioVolSoundtrack = document.getElementById('audio-vol-soundtrack');
   const audioMuteSoundtrack = document.getElementById('audio-mute-soundtrack');
 
+  // Audio advanced modal controls
+  const audioAdvancedBtn = document.getElementById('audio-advanced-btn');
+  const audioAdvancedModal = document.getElementById('audio-advanced-modal');
+  const audioAdvCloseBtn = document.getElementById('audio-adv-close-btn');
+  const audioAdvResetBtn = document.getElementById('audio-adv-reset-btn');
+  const audioAdvSaveBtn = document.getElementById('audio-adv-save-btn');
+
+  // Sliders inside advanced modal
+  const advVolClick = document.getElementById('adv-vol-click');
+  const advVolSelect = document.getElementById('adv-vol-select');
+  const advVolWindowOpen = document.getElementById('adv-vol-windowOpen');
+  const advVolAppOpen = document.getElementById('adv-vol-appOpen');
+  const advVolWindowClose = document.getElementById('adv-vol-windowClose');
+  const advVolRefresh = document.getElementById('adv-vol-refresh');
+  const advVolPulse = document.getElementById('adv-vol-pulse');
+  const advVolHum = document.getElementById('adv-vol-hum');
+  const advVolAmbience1 = document.getElementById('adv-vol-ambience1');
+  const advVolAmbience2 = document.getElementById('adv-vol-ambience2');
+
+  const advValClick = document.getElementById('adv-val-click');
+  const advValSelect = document.getElementById('adv-val-select');
+  const advValWindowOpen = document.getElementById('adv-val-windowOpen');
+  const advValAppOpen = document.getElementById('adv-val-appOpen');
+  const advValWindowClose = document.getElementById('adv-val-windowClose');
+  const advValRefresh = document.getElementById('adv-val-refresh');
+  const advValPulse = document.getElementById('adv-val-pulse');
+  const advValHum = document.getElementById('adv-val-hum');
+  const advValAmbience1 = document.getElementById('adv-val-ambience1');
+  const advValAmbience2 = document.getElementById('adv-val-ambience2');
+
   // Floating Soundtrack Tab elements
   const soundtrackFloatTab = document.getElementById('soundtrack-float-tab');
   const soundtrackTabHandle = document.getElementById('soundtrack-tab-handle');
@@ -353,6 +383,9 @@
         }
       }
     }
+    if (typeof syncAdvancedSliders === 'function') {
+      syncAdvancedSliders();
+    }
   }
 
   async function initSphere() {
@@ -525,6 +558,114 @@
     AudioEngine.setMute('soundtrack', !audioMuteSoundtrack.checked);
     autoSaveAudio();
   });
+
+  // ─── Advanced Audio Controls Modal ──────────────────────────────────────────
+  if (audioAdvancedBtn) {
+    audioAdvancedBtn.addEventListener('click', () => {
+      syncAdvancedSliders();
+      audioAdvancedModal.removeAttribute('hidden');
+      requestAnimationFrame(() => {
+        audioAdvancedModal.classList.add('visible');
+      });
+      if (window.AudioEngine && typeof window.AudioEngine.playWindowOpen === 'function') {
+        window.AudioEngine.playWindowOpen();
+      }
+    });
+  }
+
+  function hideAdvancedAudioModal() {
+    audioAdvancedModal.classList.remove('visible');
+    if (window.AudioEngine && typeof window.AudioEngine.playWindowClose === 'function') {
+      window.AudioEngine.playWindowClose();
+    }
+    setTimeout(() => {
+      audioAdvancedModal.setAttribute('hidden', '');
+    }, 400);
+  }
+
+  if (audioAdvCloseBtn) {
+    audioAdvCloseBtn.addEventListener('click', hideAdvancedAudioModal);
+  }
+
+  // Real-time slider adjustments
+  const advancedSliders = [
+    { key: 'click', slider: advVolClick, valBadge: advValClick },
+    { key: 'select', slider: advVolSelect, valBadge: advValSelect },
+    { key: 'windowOpen', slider: advVolWindowOpen, valBadge: advValWindowOpen },
+    { key: 'appOpen', slider: advVolAppOpen, valBadge: advValAppOpen },
+    { key: 'windowClose', slider: advVolWindowClose, valBadge: advValWindowClose },
+    { key: 'refresh', slider: advVolRefresh, valBadge: advValRefresh },
+    { key: 'pulse', slider: advVolPulse, valBadge: advValPulse },
+    { key: 'hum', slider: advVolHum, valBadge: advValHum },
+    { key: 'ambience1', slider: advVolAmbience1, valBadge: advValAmbience1 },
+    { key: 'ambience2', slider: advVolAmbience2, valBadge: advValAmbience2 }
+  ];
+
+  advancedSliders.forEach(item => {
+    if (item.slider) {
+      item.slider.addEventListener('input', () => {
+        const val = parseInt(item.slider.value);
+        if (item.valBadge) item.valBadge.textContent = val + '%';
+        if (window.AudioEngine && typeof window.AudioEngine.setIndividualVolume === 'function') {
+          window.AudioEngine.setIndividualVolume(item.key, val / 100);
+        }
+      });
+    }
+  });
+
+  if (audioAdvResetBtn) {
+    audioAdvResetBtn.addEventListener('click', () => {
+      const defaults = {
+        click: 20,
+        select: 100,
+        windowOpen: 100,
+        appOpen: 100,
+        windowClose: 100,
+        refresh: 100,
+        pulse: 100,
+        hum: 100,
+        ambience1: 100,
+        ambience2: 30
+      };
+
+      advancedSliders.forEach(item => {
+        if (item.slider) {
+          const defVal = defaults[item.key] !== undefined ? defaults[item.key] : 100;
+          item.slider.value = defVal;
+          if (item.valBadge) item.valBadge.textContent = defVal + '%';
+          if (window.AudioEngine && typeof window.AudioEngine.setIndividualVolume === 'function') {
+            window.AudioEngine.setIndividualVolume(item.key, defVal / 100);
+          }
+        }
+      });
+
+      if (window.AudioEngine && typeof window.AudioEngine.playSelect === 'function') {
+        window.AudioEngine.playSelect();
+      }
+    });
+  }
+
+  if (audioAdvSaveBtn) {
+    audioAdvSaveBtn.addEventListener('click', () => {
+      autoSaveAudio();
+      showToast('Sound levels locked!', 'success');
+      hideAdvancedAudioModal();
+    });
+  }
+
+  function syncAdvancedSliders() {
+    if (!window.AudioEngine || typeof window.AudioEngine.getIndividualVolumes !== 'function') return;
+    const vols = window.AudioEngine.getIndividualVolumes();
+    
+    advancedSliders.forEach(item => {
+      if (item.slider) {
+        const factor = vols[item.key] !== undefined ? vols[item.key] : 1.0;
+        const val = Math.round(factor * 100);
+        item.slider.value = val;
+        if (item.valBadge) item.valBadge.textContent = val + '%';
+      }
+    });
+  }
   // Floating Soundtrack Tab event listeners
   if (soundtrackTabHandle) {
     soundtrackTabHandle.addEventListener('click', () => {

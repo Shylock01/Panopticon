@@ -494,6 +494,10 @@
             <input type="range" id="audio-vol-soundtrack" class="audio-slider" min="0" max="100" step="1" value="50">
           </div>
 
+          <div style="margin-top: 24px;">
+            <button id="audio-advanced-btn" class="btn btn-outline btn-sm btn-full">Advanced Controls</button>
+          </div>
+
         </div>
       </div>
 
@@ -594,6 +598,147 @@
       </div>
     </div>
     <div id="frames-container" class="frames-container"></div>
+  </div>
+
+  <!-- ── Audio Advanced Controls Modal ─────────────────────────── -->
+  <div id="audio-advanced-modal" class="audio-advanced-modal" role="dialog" aria-modal="true" aria-labelledby="audio-adv-title" hidden>
+    <div class="audio-adv-card">
+      <button id="audio-adv-close-btn" class="popup-close icon-btn" aria-label="Close advanced audio controls">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+
+      <h2 id="audio-adv-title" class="audio-adv-title">Advanced Audio Controls</h2>
+      <p class="audio-adv-desc">Fine-tune individual volume offsets for each sound asset in Panopticon.</p>
+
+      <div class="audio-adv-scroll-container">
+        <!-- Click Sound -->
+        <div class="audio-adv-row">
+          <div class="audio-adv-label-wrap">
+            <span class="audio-adv-name">Click Feedback</span>
+            <span class="audio-adv-file-info">sound_click.wav</span>
+          </div>
+          <div class="audio-adv-control">
+            <input type="range" id="adv-vol-click" class="audio-slider" min="0" max="100" step="1" value="20">
+            <span id="adv-val-click" class="audio-adv-val">20%</span>
+          </div>
+        </div>
+
+        <!-- Select Sound -->
+        <div class="audio-adv-row">
+          <div class="audio-adv-label-wrap">
+            <span class="audio-adv-name">Node Selection</span>
+            <span class="audio-adv-file-info">sound_select.wav</span>
+          </div>
+          <div class="audio-adv-control">
+            <input type="range" id="adv-vol-select" class="audio-slider" min="0" max="100" step="1" value="100">
+            <span id="adv-val-select" class="audio-adv-val">100%</span>
+          </div>
+        </div>
+
+        <!-- Window Open Sound -->
+        <div class="audio-adv-row">
+          <div class="audio-adv-label-wrap">
+            <span class="audio-adv-name">Window Open</span>
+            <span class="audio-adv-file-info">sound_window_open.wav</span>
+          </div>
+          <div class="audio-adv-control">
+            <input type="range" id="adv-vol-windowOpen" class="audio-slider" min="0" max="100" step="1" value="100">
+            <span id="adv-val-windowOpen" class="audio-adv-val">100%</span>
+          </div>
+        </div>
+
+        <!-- App Open Sound -->
+        <div class="audio-adv-row">
+          <div class="audio-adv-label-wrap">
+            <span class="audio-adv-name">App Launch (Startup)</span>
+            <span class="audio-adv-file-info">power_on.mp3</span>
+          </div>
+          <div class="audio-adv-control">
+            <input type="range" id="adv-vol-appOpen" class="audio-slider" min="0" max="100" step="1" value="100">
+            <span id="adv-val-appOpen" class="audio-adv-val">100%</span>
+          </div>
+        </div>
+
+        <!-- Window Close / App Close Sound -->
+        <div class="audio-adv-row">
+          <div class="audio-adv-label-wrap">
+            <span class="audio-adv-name">Window & App Close</span>
+            <span class="audio-adv-file-info">windowClose (reversed)</span>
+          </div>
+          <div class="audio-adv-control">
+            <input type="range" id="adv-vol-windowClose" class="audio-slider" min="0" max="100" step="1" value="100">
+            <span id="adv-val-windowClose" class="audio-adv-val">100%</span>
+          </div>
+        </div>
+
+        <!-- Refresh Sound -->
+        <div class="audio-adv-row">
+          <div class="audio-adv-label-wrap">
+            <span class="audio-adv-name">App Metadata Refresh</span>
+            <span class="audio-adv-file-info">refresh.wav</span>
+          </div>
+          <div class="audio-adv-control">
+            <input type="range" id="adv-vol-refresh" class="audio-slider" min="0" max="100" step="1" value="100">
+            <span id="adv-val-refresh" class="audio-adv-val">100%</span>
+          </div>
+        </div>
+
+        <!-- Pulse Sound -->
+        <div class="audio-adv-row">
+          <div class="audio-adv-label-wrap">
+            <span class="audio-adv-name">Selection Pulse Wave</span>
+            <span class="audio-adv-file-info">pulse_effect.mp3</span>
+          </div>
+          <div class="audio-adv-control">
+            <input type="range" id="adv-vol-pulse" class="audio-slider" min="0" max="100" step="1" value="100">
+            <span id="adv-val-pulse" class="audio-adv-val">100%</span>
+          </div>
+        </div>
+
+        <!-- Hum Sound -->
+        <div class="audio-adv-row">
+          <div class="audio-adv-label-wrap">
+            <span class="audio-adv-name">Interactive Drag Hum</span>
+            <span class="audio-adv-file-info">synthesizer hum</span>
+          </div>
+          <div class="audio-adv-control">
+            <input type="range" id="adv-vol-hum" class="audio-slider" min="0" max="100" step="1" value="100">
+            <span id="adv-val-hum" class="audio-adv-val">100%</span>
+          </div>
+        </div>
+
+        <!-- Ambience 1 -->
+        <div class="audio-adv-row">
+          <div class="audio-adv-label-wrap">
+            <span class="audio-adv-name">Primary Ambience Loop</span>
+            <span class="audio-adv-file-info">ambience_1.mp3</span>
+          </div>
+          <div class="audio-adv-control">
+            <input type="range" id="adv-vol-ambience1" class="audio-slider" min="0" max="100" step="1" value="100">
+            <span id="adv-val-ambience1" class="audio-adv-val">100%</span>
+          </div>
+        </div>
+
+        <!-- Ambience 2 -->
+        <div class="audio-adv-row">
+          <div class="audio-adv-label-wrap">
+            <span class="audio-adv-name">Background Ambience Loop</span>
+            <span class="audio-adv-file-info">ambience_2.mp3</span>
+          </div>
+          <div class="audio-adv-control">
+            <input type="range" id="adv-vol-ambience2" class="audio-slider" min="0" max="100" step="1" value="30">
+            <span id="adv-val-ambience2" class="audio-adv-val">30%</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top: 12px; display: flex; gap: 12px;">
+        <button id="audio-adv-reset-btn" class="btn btn-outline btn-sm" style="flex: 1;">Reset</button>
+        <button id="audio-adv-save-btn" class="btn btn-success btn-sm" style="flex: 1;">Save levels</button>
+      </div>
+    </div>
   </div>
 
   <!-- ── Toast Notifications ───────────────────────────────────── -->
