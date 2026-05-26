@@ -169,6 +169,17 @@
   // Adjust app-shell when on-screen keyboard is open, only if opted in
   const appKeyboardModes = new Map(); // repoName -> 'shrink' | 'overlay'
 
+  function setViewportWidgetMode(mode) {
+    const meta = document.querySelector('meta[name="viewport"]');
+    if (meta) {
+      if (mode === 'resizes-content') {
+        meta.setAttribute('content', 'width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content');
+      } else {
+        meta.setAttribute('content', 'width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=overlays-content');
+      }
+    }
+  }
+
   function setupVisualViewportTracker() {
     const vv = window.visualViewport;
     if (!vv) return;
@@ -1053,6 +1064,7 @@
   function openApp(appEntry) {
     if (!appEntry) return;
     currentShellApp = appEntry;
+    setViewportWidgetMode('resizes-content');
     backgroundApps.delete(appEntry.repoName);
     updateAudioMuteState();
 
@@ -1137,6 +1149,7 @@
   // Called by both shellBackgroundBtn handler AND popHistoryLayer (back btn).
   function backgroundAppCore() {
     if (!currentShellApp) return;
+    setViewportWidgetMode('overlays-content');
     if (window.AudioEngine && typeof window.AudioEngine.playAppClose === 'function') {
       window.AudioEngine.playAppClose();
     }
@@ -1169,6 +1182,7 @@
 
   shellCloseBtn.addEventListener('click', () => {
     if (!currentShellApp) return;
+    setViewportWidgetMode('overlays-content');
     if (window.AudioEngine && typeof window.AudioEngine.playAppClose === 'function') {
       window.AudioEngine.playAppClose();
     }
