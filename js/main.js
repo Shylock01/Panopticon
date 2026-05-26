@@ -169,17 +169,6 @@
   // Adjust app-shell when on-screen keyboard is open, only if opted in
   const appKeyboardModes = new Map(); // repoName -> 'shrink' | 'overlay'
 
-  function setViewportWidgetMode(mode) {
-    const meta = document.querySelector('meta[name="viewport"]');
-    if (meta) {
-      if (mode === 'resizes-content') {
-        meta.setAttribute('content', 'width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content');
-      } else {
-        meta.setAttribute('content', 'width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=overlays-content');
-      }
-    }
-  }
-
   function setupVisualViewportTracker() {
     const vv = window.visualViewport;
     if (!vv) return;
@@ -196,20 +185,8 @@
         maxHeight = vv.height;
       }
 
-      // Shrink layout ONLY if the active app has explicitly opted in
-      const currentRepo = currentShellApp?.repoName;
-      const mode = currentRepo ? (appKeyboardModes.get(currentRepo) || 'overlay') : 'overlay';
-
-      if (mode === 'shrink') {
-        const isKeyboard = (maxHeight - vv.height) > 100;
-        if (isKeyboard) {
-          appShell.style.height = `${vv.height}px`;
-        } else {
-          appShell.style.height = '';
-        }
-      } else {
-        appShell.style.height = '';
-      }
+      // Keep app shell at default height (100% full height) to ensure stability and prevent squishing
+      appShell.style.height = '';
 
       // Broadcast visual viewport metrics to the active iframe (cross-origin safe!)
       const activeFrame = currentShellApp ? iframes.get(currentShellApp.repoName) : null;
@@ -1064,7 +1041,6 @@
   function openApp(appEntry) {
     if (!appEntry) return;
     currentShellApp = appEntry;
-    setViewportWidgetMode('resizes-content');
     backgroundApps.delete(appEntry.repoName);
     updateAudioMuteState();
 
@@ -1149,7 +1125,6 @@
   // Called by both shellBackgroundBtn handler AND popHistoryLayer (back btn).
   function backgroundAppCore() {
     if (!currentShellApp) return;
-    setViewportWidgetMode('overlays-content');
     if (window.AudioEngine && typeof window.AudioEngine.playAppClose === 'function') {
       window.AudioEngine.playAppClose();
     }
@@ -1182,7 +1157,6 @@
 
   shellCloseBtn.addEventListener('click', () => {
     if (!currentShellApp) return;
-    setViewportWidgetMode('overlays-content');
     if (window.AudioEngine && typeof window.AudioEngine.playAppClose === 'function') {
       window.AudioEngine.playAppClose();
     }
