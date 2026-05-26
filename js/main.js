@@ -923,6 +923,7 @@
       description: repo.description,
       iconDataUrl: dataUrl,
       iconColor: color,
+      updatedAt: repo.updatedAt || '',
     };
 
     let manifestIconUrl = null;
@@ -1022,7 +1023,14 @@
     frame.className = 'app-frame hidden';
     frame.setAttribute('frameborder', '0');
     frame.setAttribute('allow', 'autoplay; fullscreen; geolocation; microphone; camera; midi; encrypted-media; gyroscope; accelerometer; virtual-keyboard;');
-    frame.src = appEntry.pagesUrl;
+    
+    const baseUrl = appEntry.pagesUrl;
+    const url = new URL(baseUrl);
+    if (appEntry.updatedAt) {
+      url.searchParams.set('_cb', encodeURIComponent(appEntry.updatedAt));
+    }
+    frame.src = url.toString();
+
     framesContainer.appendChild(frame);
     iframes.set(repo, frame);
     return frame;
@@ -1272,6 +1280,28 @@
     popupIconInput.value = '';
   });
 
+  async function clearAppServiceWorkerAndCache(appUrl) {
+    if (!appUrl) return;
+    try {
+      if (navigator.serviceWorker) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        const urlObj = new URL(appUrl);
+        const appPathname = urlObj.pathname.replace(/\/$/, '');
+        
+        for (const reg of registrations) {
+          const regUrl = new URL(reg.scope);
+          const regPathname = regUrl.pathname.replace(/\/$/, '');
+          if (regPathname.startsWith(appPathname) || appPathname.startsWith(regPathname)) {
+            await reg.unregister();
+            console.log(`[Cache Bust] Unregistered Service Worker for scope: ${reg.scope}`);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[Cache Bust] Service worker unregistration failed:', e);
+    }
+  }
+
   popupRefreshBtn.addEventListener('click', async () => {
     if (!activePopupApp) return;
     const repo = activePopupApp;
@@ -1280,6 +1310,19 @@
       window.AudioEngine.playRefresh();
     }
     try {
+      // 1. Unregister active scoped PWA Service Workers
+      await clearAppServiceWorkerAndCache(repo.pagesUrl);
+
+      // 2. If the iframe exists, reload it in-place using a dynamic timestamp cache-buster parameter
+      const frame = iframes.get(repo.repoName);
+      if (frame) {
+        const url = new URL(repo.pagesUrl);
+        url.searchParams.set('_cb', Date.now().toString());
+        frame.src = url.toString();
+        console.log(`[Cache Bust] Forced reload of iframe for ${repo.repoName} to: ${frame.src}`);
+      }
+
+      // 3. Fetch app metadata and icon updates from GitHub
       let manifestIconUrl = null;
       if (GH.fetchAppMeta) {
         const meta = await GH.fetchAppMeta(repo.pagesUrl);
@@ -1300,7 +1343,8 @@
         popupIcon.src = favUrl;
         sphere?.updateNodeIcon(repo.repoName, favUrl);
       }
-      showToast(`${repo.repoName} refreshed!`, 'success');
+
+      showToast(`${repo.repoName} reloaded and cache cleared!`, 'success');
       if (window.Auth) window.Auth.syncAll();
     } catch (e) {
       showToast(`Refresh failed: ${e.message}`, 'error');

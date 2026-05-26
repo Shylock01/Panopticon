@@ -90,6 +90,7 @@ window.Store = (() => {
         iconDataUrl: a.iconDataUrl || a.icon,
         description: a.description || a.desc || '',
         iconColor:   a.iconColor   || a.color,
+        updatedAt:   a.updatedAt   || '',
       };
     });
   }
