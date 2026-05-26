@@ -1021,7 +1021,7 @@
     const frame = document.createElement('iframe');
     frame.className = 'app-frame hidden';
     frame.setAttribute('frameborder', '0');
-    frame.setAttribute('allow', 'autoplay; fullscreen; geolocation; microphone; camera; midi; encrypted-media; gyroscope; accelerometer;');
+    frame.setAttribute('allow', 'autoplay; fullscreen; geolocation; microphone; camera; midi; encrypted-media; gyroscope; accelerometer; virtual-keyboard;');
     frame.src = appEntry.pagesUrl;
     framesContainer.appendChild(frame);
     iframes.set(repo, frame);
