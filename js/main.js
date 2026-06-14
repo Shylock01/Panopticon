@@ -1310,19 +1310,39 @@
       window.AudioEngine.playRefresh();
     }
     try {
-      // 1. Unregister active scoped PWA Service Workers
+      // 1. Fetch latest updatedAt from GitHub if authenticated
+      const token = Store.getToken();
+      let newUpdatedAt = Date.now().toString(); // Default fallback
+      if (token) {
+        try {
+          const reposList = await GH.fetchRepos(token);
+          const matchedRepo = reposList.find(r => r.repoName === repo.repoName);
+          if (matchedRepo && matchedRepo.updatedAt) {
+            newUpdatedAt = matchedRepo.updatedAt;
+            console.log(`[Cache Bust] Fetched latest GitHub updatedAt for ${repo.repoName}: ${newUpdatedAt}`);
+          }
+        } catch (err) {
+          console.warn('[Cache Bust] Failed to fetch latest repository info from GitHub:', err);
+        }
+      }
+
+      // Update in active app object & persist in DB
+      repo.updatedAt = newUpdatedAt;
+      await Store.updateAppUpdatedAt(repo.repoName, newUpdatedAt);
+
+      // 2. Unregister active scoped PWA Service Workers
       await clearAppServiceWorkerAndCache(repo.pagesUrl);
 
-      // 2. If the iframe exists, reload it in-place using a dynamic timestamp cache-buster parameter
+      // 3. If the iframe exists, reload it in-place using the new cache-buster parameter
       const frame = iframes.get(repo.repoName);
       if (frame) {
         const url = new URL(repo.pagesUrl);
-        url.searchParams.set('_cb', Date.now().toString());
+        url.searchParams.set('_cb', encodeURIComponent(newUpdatedAt));
         frame.src = url.toString();
         console.log(`[Cache Bust] Forced reload of iframe for ${repo.repoName} to: ${frame.src}`);
       }
 
-      // 3. Fetch app metadata and icon updates from GitHub
+      // 4. Fetch app metadata and icon updates from GitHub
       let manifestIconUrl = null;
       if (GH.fetchAppMeta) {
         const meta = await GH.fetchAppMeta(repo.pagesUrl);
