@@ -65,10 +65,12 @@ window.GH = (() => {
       }
     } catch (e) {}
     
+    let name = null;
     let description = null;
     let iconUrl = null;
     
     if (manifestData) {
+      name = manifestData.name || manifestData.short_name || null;
       description = manifestData.description || manifestData.short_name || null;
       if (manifestData.icons && manifestData.icons.length > 0) {
         const icon = manifestData.icons[manifestData.icons.length - 1];
@@ -78,7 +80,7 @@ window.GH = (() => {
       }
     }
     
-    return { description, iconUrl };
+    return { name, description, iconUrl };
   }
 
   // ── Favicon fetching ─────────────────────────────────────────────────────

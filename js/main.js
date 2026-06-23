@@ -930,6 +930,7 @@
     if (GH.fetchAppMeta) {
       const meta = await GH.fetchAppMeta(repo.pagesUrl);
       if (meta) {
+        if (meta.name) entry.displayName = meta.name;
         if (meta.description) entry.description = meta.description;
         if (meta.iconUrl) manifestIconUrl = meta.iconUrl;
       }
@@ -965,7 +966,7 @@
     activePopupApp = appEntry;
     popupIcon.src = appEntry.iconDataUrl;
     popupIcon.alt = appEntry.repoName;
-    popupName.textContent = appEntry.repoName;
+    popupName.textContent = appEntry.displayName || appEntry.repoName;
     popupDesc.textContent = appEntry.description || 'No description provided.';
     popupLaunch.href = appEntry.pagesUrl;
     popupUnlink.classList.remove('btn-danger-confirm');
@@ -1347,6 +1348,11 @@
       if (GH.fetchAppMeta) {
         const meta = await GH.fetchAppMeta(repo.pagesUrl);
         if (meta) {
+          if (meta.name) {
+            repo.displayName = meta.name;
+            await Store.updateAppDisplayName(repo.repoName, meta.name);
+            popupName.textContent = meta.name;
+          }
           if (meta.description) {
             repo.description = meta.description;
             await Store.updateAppDescription(repo.repoName, meta.description);

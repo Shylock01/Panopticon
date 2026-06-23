@@ -91,6 +91,7 @@ window.Store = (() => {
         description: a.description || a.desc || '',
         iconColor:   a.iconColor   || a.color,
         updatedAt:   a.updatedAt   || '',
+        displayName: a.displayName || '',
       };
     });
   }
@@ -123,6 +124,13 @@ window.Store = (() => {
   async function updateAppDescription(repoName, description) {
     const apps = (await getLinkedApps()).map(a =>
       a.repoName === repoName ? { ...a, description } : a
+    );
+    await set('linked_apps', apps);
+  }
+
+  async function updateAppDisplayName(repoName, displayName) {
+    const apps = (await getLinkedApps()).map(a =>
+      a.repoName === repoName ? { ...a, displayName } : a
     );
     await set('linked_apps', apps);
   }
@@ -189,7 +197,7 @@ window.Store = (() => {
   return { 
     getToken, saveToken, clearToken, 
     getLinkedApps, isLinked, linkApp, unlinkApp, 
-    updateAppIcon, updateAppDescription, updateAppUpdatedAt,
+    updateAppIcon, updateAppDescription, updateAppDisplayName, updateAppUpdatedAt,
     getAppState, setAppState,
     getZoom, saveZoom,
     getStyles, saveStyles,
