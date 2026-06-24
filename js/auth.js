@@ -394,6 +394,39 @@
         timestamp: firebase.firestore.FieldValue.serverTimestamp()
       };
       await userRef.collection('changelog').add(changeDoc);
+    },
+
+    nuclearReset: async () => {
+      if (!auth || !auth.currentUser) return;
+      const uid = auth.currentUser.uid;
+      const userRef = db.collection('users').doc(uid);
+      
+      try {
+        console.log('[Sync] Performing cloud nuclear reset...');
+        const batch = db.batch();
+        
+        // Delete all states subcollection documents
+        const statesSnap = await userRef.collection('states').get();
+        statesSnap.forEach(doc => {
+          batch.delete(doc.ref);
+        });
+        
+        // Delete all changelog subcollection documents
+        const changelogSnap = await userRef.collection('changelog').get();
+        changelogSnap.forEach(doc => {
+          batch.delete(doc.ref);
+        });
+        
+        // Delete user profile doc itself
+        batch.delete(userRef);
+        
+        await batch.commit();
+        console.log('[Sync] Cloud reset completed successfully.');
+        await auth.signOut();
+      } catch (err) {
+        console.error('[Sync] Error during cloud nuclear reset:', err);
+        throw err;
+      }
     }
   };
 

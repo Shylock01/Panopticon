@@ -86,6 +86,7 @@
   const shellBackgroundBtn = document.getElementById('shell-background-btn');
   const shellCloseBtn = document.getElementById('shell-close-btn');
   const appResetBtn = document.getElementById('app-reset-btn');
+  const nuclearResetBtn = document.getElementById('nuclear-reset-btn');
   const settingsBadge = document.getElementById('settings-badge');
   const badgeTabLink = document.getElementById('badge-tab-link');
   const badgeTabLogin = document.getElementById('badge-tab-login');
@@ -1558,12 +1559,54 @@
       });
 
       appResetBtn?.addEventListener('click', async () => {
-        if (confirm('Nuclear Reset? This clears EVERYTHING.')) {
+        if (confirm('Hard reset app cache? This unregisters service workers and deletes cached assets.')) {
           const registrations = await navigator.serviceWorker.getRegistrations();
           for (let registration of registrations) await registration.unregister();
           const names = await caches.keys();
           for (let name of names) await caches.delete(name);
           window.location.reload();
+        }
+      });
+
+      nuclearResetBtn?.addEventListener('click', async () => {
+        if (confirm('WARNING: This deletes ALL your local settings, linked apps, game progress, AND all cloud synchronization data permanently. Are you absolutely sure?')) {
+          nuclearResetBtn.disabled = true;
+          nuclearResetBtn.textContent = 'Resetting...';
+          try {
+            if (window.Auth && window.Auth.nuclearReset) {
+              await window.Auth.nuclearReset();
+            }
+            
+            localStorage.clear();
+            sessionStorage.clear();
+            
+            await new Promise((resolve) => {
+              const req = indexedDB.deleteDatabase('PanopticonDB');
+              req.onsuccess = () => {
+                console.log('Database deleted successfully');
+                resolve();
+              };
+              req.onerror = () => {
+                console.error('Error deleting database');
+                resolve();
+              };
+              req.onblocked = () => {
+                console.warn('Database deletion blocked');
+                resolve();
+              };
+            });
+            
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            for (let registration of registrations) await registration.unregister();
+            const names = await caches.keys();
+            for (let name of names) await caches.delete(name);
+            
+            window.location.reload();
+          } catch (e) {
+            showToast('Nuclear Reset failed: ' + e.message, 'error');
+            nuclearResetBtn.disabled = false;
+            nuclearResetBtn.textContent = 'Nuclear Reset (Delete All Data)';
+          }
         }
       });
     }
