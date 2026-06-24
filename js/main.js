@@ -1392,10 +1392,44 @@
     let sourceRepo = payload?.repoName || null;
     if (!sourceRepo) {
       for (const [repo, frame] of iframes.entries()) {
-        if (frame.contentWindow === event.source) {
-          sourceRepo = repo;
-          break;
-        }
+        try {
+          if (frame.contentWindow === event.source) {
+            sourceRepo = repo;
+            break;
+          }
+        } catch (_) { /* cross-origin access may throw */ }
+      }
+    }
+
+    // Fallback: match event.origin against iframe src URLs
+    if (!sourceRepo && event.origin) {
+      for (const [repo, frame] of iframes.entries()) {
+        try {
+          const frameUrl = new URL(frame.src);
+          if (frameUrl.origin === event.origin) {
+            // If multiple apps share the same origin (e.g. github.io),
+            // narrow it down by checking the pathname prefix
+            const framePath = frameUrl.pathname.replace(/\/+$/, '');
+            // For GitHub Pages, the path is /<repoName>/ — the origin alone
+            // could match multiple apps. But if there's only one iframe with
+            // this origin, it's unambiguous.
+            let sameOriginCount = 0;
+            for (const [, f] of iframes.entries()) {
+              try {
+                if (new URL(f.src).origin === event.origin) sameOriginCount++;
+              } catch (_) {}
+            }
+            if (sameOriginCount === 1) {
+              sourceRepo = repo;
+              break;
+            }
+            // Multiple apps on same origin — match repo name in path
+            if (framePath.toLowerCase().includes(repo.toLowerCase())) {
+              sourceRepo = repo;
+              break;
+            }
+          }
+        } catch (_) { /* invalid URL, skip */ }
       }
     }
 
