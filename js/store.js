@@ -142,6 +142,10 @@ window.Store = (() => {
     await set('linked_apps', apps);
   }
 
+  async function saveLinkedApps(apps) {
+    await set('linked_apps', apps);
+  }
+
   // --- App State Persistence (The "Sync" Feature) ---------------------------
   async function getAppState(repoName) {
     return await get(`state_${repoName}`);
@@ -196,7 +200,7 @@ window.Store = (() => {
 
   return { 
     getToken, saveToken, clearToken, 
-    getLinkedApps, isLinked, linkApp, unlinkApp, 
+    getLinkedApps, isLinked, linkApp, unlinkApp, saveLinkedApps,
     updateAppIcon, updateAppDescription, updateAppDisplayName, updateAppUpdatedAt,
     getAppState, setAppState,
     getZoom, saveZoom,

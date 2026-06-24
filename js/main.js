@@ -824,6 +824,9 @@
     clearTimeout(audioSaveTimeout);
     audioSaveTimeout = setTimeout(async () => {
       await Store.saveAudioConfig(AudioEngine.getConfig());
+      if (window.Auth && window.Auth.syncAll) {
+        window.Auth.syncAll();
+      }
     }, 500);
   }
 
@@ -1588,10 +1591,20 @@
     );
   }
 
+  function postMessageToApp(repoName, type, payload) {
+    if (iframes.has(repoName)) {
+      const frame = iframes.get(repoName);
+      frame.contentWindow.postMessage({ type, payload }, '*');
+      return true;
+    }
+    return false;
+  }
+
   // ─── Global Expose ────────────────────────────────────────────────────────
   window.Main = {
     initStyles,
-    initSphere
+    initSphere,
+    postMessageToApp
   };
 
   // ─── Go! ──────────────────────────────────────────────────────────────────

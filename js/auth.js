@@ -74,50 +74,46 @@
         try {
           const userRef = db.collection('users').doc(user.uid);
           
+          // 1. Initial login check: if document is new or never synced, push local state first
+          const docSnap = await userRef.get();
+          if (!docSnap.exists || !docSnap.data().lastSync) {
+            console.log('[Sync] New account or unsynced user. Pushing local data to cloud.');
+            if (window.Auth && window.Auth.syncAll) {
+              await window.Auth.syncAll();
+            }
+          }
+
           if (window._syncUnsubscribe) window._syncUnsubscribe();
+          if (window._statesUnsubscribe) window._statesUnsubscribe();
           
+          // 2. Profile and Config Document Listener
           window._syncUnsubscribe = userRef.onSnapshot(async (doc) => {
             if (doc.exists) {
               const data = doc.data();
               let needsReinit = false;
               let needsStyleUpdate = false;
               
-              // 1. Sync Token
-              if (data.ghToken && !Store.getToken()) {
-                Store.saveToken(data.ghToken);
+              // Sync Token
+              if (data.ghToken) {
+                const localToken = Store.getToken();
+                if (localToken !== data.ghToken) {
+                  Store.saveToken(data.ghToken);
+                }
               }
               
-              // 2. Sync App List
-              if (data.linkedApps && data.linkedApps.length > 0) {
+              // Sync App List (Compare & Overwrite to support delete/add replication)
+              if (data.linkedApps) {
                 const localApps = await Store.getLinkedApps();
-                if (localApps.length === 0) {
-                  for (const app of data.linkedApps) {
-                    await Store.linkApp(app);
-                  }
+                if (JSON.stringify(localApps) !== JSON.stringify(data.linkedApps)) {
+                  await Store.saveLinkedApps(data.linkedApps);
                   needsReinit = true;
                 }
               }
               
-              // 3. Sync App States (Sub-collection)
-              // Note: For now, app states are synced once per session. 
-              // Can be migrated to onSnapshot if real-time state syncing is needed.
-              const statesSnap = await userRef.collection('states').get();
-              for (const stateDoc of statesSnap.docs) {
-                const repoName = stateDoc.id;
-                const stateData = stateDoc.data().payload;
-                const localState = await Store.getAppState(repoName);
-                if (!localState) {
-                  await Store.setAppState(repoName, stateData);
-                  needsReinit = true; 
-                }
-              }
-
-              // 4. Sync Styles
+              // Sync Styles
               if (data.stylesConfig) {
                 const localStyles = await Store.getStyles();
-                // Only pull if local has accountSync enabled or is new
                 if (!localStyles || localStyles.accountSync !== false) {
-                  // Prevent infinite reload loop by verifying styles actually changed
                   if (!localStyles || JSON.stringify(localStyles) !== JSON.stringify(data.stylesConfig)) {
                     await Store.saveStyles(data.stylesConfig);
                     needsStyleUpdate = true;
@@ -125,20 +121,62 @@
                 }
               }
 
+              // Sync Audio Settings
+              if (data.audioConfig) {
+                const localAudio = await Store.getAudioConfig();
+                if (!localAudio || JSON.stringify(localAudio) !== JSON.stringify(data.audioConfig)) {
+                  await Store.saveAudioConfig(data.audioConfig);
+                  needsStyleUpdate = true;
+                }
+              }
+
               if (needsReinit || needsStyleUpdate) {
-                 if (window.Main && window.Main.initStyles && window.Main.initSphere) {
-                   if (needsStyleUpdate) await window.Main.initStyles();
-                   await window.Main.initSphere();
-                 } else {
-                   window.location.reload();
-                 }
+                if (window.Main && window.Main.initStyles && window.Main.initSphere) {
+                  if (needsStyleUpdate) await window.Main.initStyles();
+                  await window.Main.initSphere();
+                } else {
+                  window.location.reload();
+                }
               }
             }
           }, (syncErr) => {
             console.error('Real-time cloud sync failed:', syncErr);
           });
+
+          // 3. App States Subcollection Listener (Cross-device real-time sync)
+          window._statesUnsubscribe = userRef.collection('states').onSnapshot(async (snapshot) => {
+            for (const change of snapshot.docChanges()) {
+              if (change.type === 'added' || change.type === 'modified') {
+                const repoName = change.doc.id;
+                const stateData = change.doc.data().payload;
+                
+                const localState = await Store.getAppState(repoName);
+                if (JSON.stringify(localState) !== JSON.stringify(stateData)) {
+                  await Store.setAppState(repoName, stateData);
+                  
+                  if (window.Main && typeof window.Main.postMessageToApp === 'function') {
+                    window.Main.postMessageToApp(repoName, 'PANOPTICON_LOAD', stateData);
+                    console.log(`[Sync] Real-time state updated and posted to iframe for app: ${repoName}`);
+                  }
+                }
+              }
+            }
+          }, (statesErr) => {
+            console.error('Real-time app states sync failed:', statesErr);
+          });
+
         } catch (err) {
           console.error('Failed to attach sync listener:', err);
+        }
+      } else {
+        // Logged out
+        if (window._syncUnsubscribe) {
+          window._syncUnsubscribe();
+          window._syncUnsubscribe = null;
+        }
+        if (window._statesUnsubscribe) {
+          window._statesUnsubscribe();
+          window._statesUnsubscribe = null;
         }
       }
     });
@@ -166,11 +204,13 @@
       const token = Store.getToken();
       
       const styles = await Store.getStyles();
+      const audio = await Store.getAudioConfig();
       
-      // Sync list, token, and styles (if accountSync is enabled)
+      // Sync list, token, styles, and audio
       const payload = { 
-        ghToken: token,
-        linkedApps: apps,
+        ghToken: token || "",
+        linkedApps: apps || [],
+        audioConfig: audio || null,
         lastSync: firebase.firestore.FieldValue.serverTimestamp()
       };
       
