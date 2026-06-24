@@ -85,11 +85,11 @@ window.Store = (() => {
         pagesUrl = 'https://' + pagesUrl;
       }
       return {
-        repoName:    a.repoName    || a.name,
+        repoName:    a.repoName    || a.name || '',
         pagesUrl:    pagesUrl,
-        iconDataUrl: a.iconDataUrl || a.icon,
+        iconDataUrl: a.iconDataUrl || a.icon || '',
         description: a.description || a.desc || '',
-        iconColor:   a.iconColor   || a.color,
+        iconColor:   a.iconColor   || a.color || '',
         updatedAt:   a.updatedAt   || '',
         displayName: a.displayName || '',
       };

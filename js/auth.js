@@ -182,6 +182,38 @@
     });
   }
 
+  // --- Firestore Serialization Helper ---
+  function sanitizeFirestoreData(data) {
+    if (data === undefined) {
+      return null;
+    }
+    if (data === null) {
+      return null;
+    }
+    if (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue) {
+      if (data instanceof firebase.firestore.FieldValue) {
+        return data;
+      }
+    }
+    if (Array.isArray(data)) {
+      return data.map(item => sanitizeFirestoreData(item));
+    }
+    if (typeof data === 'object') {
+      if (data instanceof Date || data instanceof Blob || (typeof File !== 'undefined' && data instanceof File)) {
+        return data;
+      }
+      const sanitized = {};
+      for (const key of Object.keys(data)) {
+        const val = data[key];
+        if (val !== undefined) {
+          sanitized[key] = sanitizeFirestoreData(val);
+        }
+      }
+      return sanitized;
+    }
+    return data;
+  }
+
   // --- Public API ---
   window.Auth = {
     showLogin: () => showModal('login'),
@@ -190,7 +222,10 @@
 
     syncToken: async (token) => {
       if (auth && auth.currentUser) {
-        await db.collection('users').doc(auth.currentUser.uid).set({ ghToken: token }, { merge: true });
+        await db.collection('users').doc(auth.currentUser.uid).set(
+          sanitizeFirestoreData({ ghToken: token || "" }),
+          { merge: true }
+        );
       }
     },
 
@@ -220,14 +255,14 @@
         payload.stylesConfig = firebase.firestore.FieldValue.delete();
       }
 
-      await userRef.set(payload, { merge: true });
+      await userRef.set(sanitizeFirestoreData(payload), { merge: true });
 
       // Sync individual app states
       for (const app of apps) {
         const state = await Store.getAppState(app.repoName);
         if (state) {
           await userRef.collection('states').doc(app.repoName).set({
-            payload: state,
+            payload: sanitizeFirestoreData(state),
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
           });
         }
