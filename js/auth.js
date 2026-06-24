@@ -103,7 +103,11 @@
                 if (data.ghToken) {
                   const localToken = Store.getToken();
                   if (localToken !== data.ghToken) {
+                    const hadNoToken = !localToken;
                     Store.saveToken(data.ghToken);
+                    if (hadNoToken) {
+                      needsReinit = true;
+                    }
                   }
                 }
                 
