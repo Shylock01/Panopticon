@@ -25,6 +25,16 @@
     db = firebase.firestore();
   }
 
+  // --- Device ID Helper ---
+  function getDeviceId() {
+    let id = localStorage.getItem('panopticon_device_id');
+    if (!id) {
+      id = 'device_' + Math.random().toString(36).substr(2, 9);
+      localStorage.setItem('panopticon_device_id', id);
+    }
+    return id;
+  }
+
   // --- UI Logic Helpers ---
   const modal = document.getElementById('auth-modal');
   const modalTitle = document.getElementById('auth-modal-title');
@@ -74,6 +84,133 @@
         try {
           const userRef = db.collection('users').doc(user.uid);
           
+          let lastAppliedTime = null;
+          const storedTime = localStorage.getItem('panopticon_last_applied_time');
+          if (storedTime) {
+            lastAppliedTime = new Date(storedTime);
+          }
+
+          async function applyLatestCloudState() {
+            try {
+              console.log('[Sync] Pulling latest state from cloud...');
+              const doc = await userRef.get();
+              if (doc.exists) {
+                const data = doc.data();
+                let needsReinit = false;
+                let needsStyleUpdate = false;
+                
+                // Sync Token
+                if (data.ghToken) {
+                  const localToken = Store.getToken();
+                  if (localToken !== data.ghToken) {
+                    Store.saveToken(data.ghToken);
+                  }
+                }
+                
+                // Sync App List
+                if (data.linkedApps) {
+                  const localApps = await Store.getLinkedApps();
+                  if (JSON.stringify(localApps) !== JSON.stringify(data.linkedApps)) {
+                    await Store.saveLinkedApps(data.linkedApps);
+                    needsReinit = true;
+                  }
+                }
+                
+                // Sync Styles
+                if (data.stylesConfig) {
+                  const localStyles = await Store.getStyles();
+                  if (!localStyles || localStyles.accountSync !== false) {
+                    if (!localStyles || JSON.stringify(localStyles) !== JSON.stringify(data.stylesConfig)) {
+                      await Store.saveStyles(data.stylesConfig);
+                      needsStyleUpdate = true;
+                    }
+                  }
+                }
+
+                // Sync Audio Settings
+                if (data.audioConfig) {
+                  const localAudio = await Store.getAudioConfig();
+                  if (!localAudio || JSON.stringify(localAudio) !== JSON.stringify(data.audioConfig)) {
+                    await Store.saveAudioConfig(data.audioConfig);
+                    needsStyleUpdate = true;
+                  }
+                }
+
+                // Sync all app states from the 'states' collection
+                const statesSnap = await userRef.collection('states').get();
+                for (const stateDoc of statesSnap.docs) {
+                  const repoName = stateDoc.id;
+                  let stateData = stateDoc.data().payload;
+                  if (typeof stateData === 'string') {
+                    try {
+                      stateData = JSON.parse(stateData);
+                    } catch (e) {
+                      console.error('[Sync] Failed to parse state payload:', e);
+                    }
+                  }
+                  const localState = await Store.getAppState(repoName);
+                  if (JSON.stringify(localState) !== JSON.stringify(stateData)) {
+                    await Store.setAppState(repoName, stateData);
+                    if (window.Main && typeof window.Main.postMessageToApp === 'function') {
+                      window.Main.postMessageToApp(repoName, 'PANOPTICON_LOAD', stateData);
+                      console.log(`[Sync] Real-time state updated and posted to iframe for app: ${repoName}`);
+                    }
+                  }
+                }
+
+                if (needsReinit || needsStyleUpdate) {
+                  if (window.Main && window.Main.initStyles && window.Main.initSphere) {
+                    if (needsStyleUpdate) await window.Main.initStyles();
+                    await window.Main.initSphere();
+                  } else {
+                    window.location.reload();
+                  }
+                }
+              }
+            } catch (err) {
+              console.error('[Sync] Error applying latest cloud state:', err);
+            }
+          }
+
+          async function checkForNewChanges() {
+            if (!auth || !auth.currentUser) return;
+            try {
+              let query = userRef.collection('changelog').orderBy('timestamp', 'asc');
+              if (lastAppliedTime) {
+                query = query.startAfter(lastAppliedTime);
+              }
+              
+              const snapshot = await query.get();
+              let hasForeignChanges = false;
+              let maxTimestamp = lastAppliedTime;
+
+              snapshot.forEach(doc => {
+                const change = doc.data();
+                if (change.timestamp) {
+                  const changeTime = change.timestamp.toDate ? change.timestamp.toDate() : new Date(change.timestamp);
+                  if (!maxTimestamp || changeTime > maxTimestamp) {
+                    maxTimestamp = changeTime;
+                  }
+                  if (change.deviceId !== getDeviceId()) {
+                    console.log(`[Sync] Found new change of type ${change.type} from device ${change.deviceId}`);
+                    hasForeignChanges = true;
+                  }
+                }
+              });
+
+              if (hasForeignChanges) {
+                await applyLatestCloudState();
+              }
+
+              if (maxTimestamp && (!lastAppliedTime || maxTimestamp > lastAppliedTime)) {
+                lastAppliedTime = maxTimestamp;
+                localStorage.setItem('panopticon_last_applied_time', lastAppliedTime.toISOString());
+              }
+            } catch (err) {
+              console.error('[Sync] Error checking for changes:', err);
+            }
+          }
+
           // 1. Initial login check: if document is new or never synced, push local state first
           const docSnap = await userRef.get();
           if (!docSnap.exists || !docSnap.data().lastSync) {
@@ -81,89 +218,71 @@
             if (window.Auth && window.Auth.syncAll) {
               await window.Auth.syncAll();
             }
+            lastAppliedTime = new Date();
+            localStorage.setItem('panopticon_last_applied_time', lastAppliedTime.toISOString());
+          } else {
+            console.log('[Sync] Existing user. Pulling latest cloud data.');
+            await applyLatestCloudState();
+            
+            const latestChangeSnap = await userRef.collection('changelog')
+              .orderBy('timestamp', 'desc')
+              .limit(1)
+              .get();
+            
+            if (!latestChangeSnap.empty) {
+              const latestChange = latestChangeSnap.docs[0].data();
+              if (latestChange.timestamp) {
+                lastAppliedTime = latestChange.timestamp.toDate ? latestChange.timestamp.toDate() : new Date(latestChange.timestamp);
+              } else {
+                lastAppliedTime = new Date();
+              }
+            } else {
+              lastAppliedTime = new Date();
+            }
+            localStorage.setItem('panopticon_last_applied_time', lastAppliedTime.toISOString());
           }
 
           if (window._syncUnsubscribe) window._syncUnsubscribe();
-          if (window._statesUnsubscribe) window._statesUnsubscribe();
-          
-          // 2. Profile and Config Document Listener
-          window._syncUnsubscribe = userRef.onSnapshot(async (doc) => {
-            if (doc.exists) {
-              const data = doc.data();
-              let needsReinit = false;
-              let needsStyleUpdate = false;
-              
-              // Sync Token
-              if (data.ghToken) {
-                const localToken = Store.getToken();
-                if (localToken !== data.ghToken) {
-                  Store.saveToken(data.ghToken);
-                }
-              }
-              
-              // Sync App List (Compare & Overwrite to support delete/add replication)
-              if (data.linkedApps) {
-                const localApps = await Store.getLinkedApps();
-                if (JSON.stringify(localApps) !== JSON.stringify(data.linkedApps)) {
-                  await Store.saveLinkedApps(data.linkedApps);
-                  needsReinit = true;
-                }
-              }
-              
-              // Sync Styles
-              if (data.stylesConfig) {
-                const localStyles = await Store.getStyles();
-                if (!localStyles || localStyles.accountSync !== false) {
-                  if (!localStyles || JSON.stringify(localStyles) !== JSON.stringify(data.stylesConfig)) {
-                    await Store.saveStyles(data.stylesConfig);
-                    needsStyleUpdate = true;
-                  }
-                }
-              }
+          if (window._syncInterval) clearInterval(window._syncInterval);
 
-              // Sync Audio Settings
-              if (data.audioConfig) {
-                const localAudio = await Store.getAudioConfig();
-                if (!localAudio || JSON.stringify(localAudio) !== JSON.stringify(data.audioConfig)) {
-                  await Store.saveAudioConfig(data.audioConfig);
-                  needsStyleUpdate = true;
-                }
-              }
+          // 2. Real-time changelog listener
+          let changelogQuery = userRef.collection('changelog').orderBy('timestamp', 'asc');
+          if (lastAppliedTime) {
+            changelogQuery = changelogQuery.startAfter(lastAppliedTime);
+          }
 
-              if (needsReinit || needsStyleUpdate) {
-                if (window.Main && window.Main.initStyles && window.Main.initSphere) {
-                  if (needsStyleUpdate) await window.Main.initStyles();
-                  await window.Main.initSphere();
-                } else {
-                  window.location.reload();
+          window._syncUnsubscribe = changelogQuery.onSnapshot(async (snapshot) => {
+            let hasForeignChanges = false;
+            let maxTimestamp = lastAppliedTime;
+
+            snapshot.forEach(doc => {
+              const change = doc.data();
+              if (change.timestamp) {
+                const changeTime = change.timestamp.toDate ? change.timestamp.toDate() : new Date(change.timestamp);
+                if (!maxTimestamp || changeTime > maxTimestamp) {
+                  maxTimestamp = changeTime;
+                }
+                if (change.deviceId !== getDeviceId()) {
+                  console.log(`[Sync] Real-time change noticed: ${change.type} from ${change.deviceId}`);
+                  hasForeignChanges = true;
                 }
               }
+            });
+
+            if (hasForeignChanges) {
+              await applyLatestCloudState();
+            }
+
+            if (maxTimestamp && (!lastAppliedTime || maxTimestamp > lastAppliedTime)) {
+              lastAppliedTime = maxTimestamp;
+              localStorage.setItem('panopticon_last_applied_time', lastAppliedTime.toISOString());
             }
           }, (syncErr) => {
             console.error('Real-time cloud sync failed:', syncErr);
           });
 
-          // 3. App States Subcollection Listener (Cross-device real-time sync)
-          window._statesUnsubscribe = userRef.collection('states').onSnapshot(async (snapshot) => {
-            for (const change of snapshot.docChanges()) {
-              if (change.type === 'added' || change.type === 'modified') {
-                const repoName = change.doc.id;
-                const stateData = change.doc.data().payload;
-                
-                const localState = await Store.getAppState(repoName);
-                if (JSON.stringify(localState) !== JSON.stringify(stateData)) {
-                  await Store.setAppState(repoName, stateData);
-                  
-                  if (window.Main && typeof window.Main.postMessageToApp === 'function') {
-                    window.Main.postMessageToApp(repoName, 'PANOPTICON_LOAD', stateData);
-                    console.log(`[Sync] Real-time state updated and posted to iframe for app: ${repoName}`);
-                  }
-                }
-              }
-            }
-          }, (statesErr) => {
-            console.error('Real-time app states sync failed:', statesErr);
-          });
+          // 3. 30-Second polling backup
+          window._syncInterval = setInterval(checkForNewChanges, 30000);
 
         } catch (err) {
           console.error('Failed to attach sync listener:', err);
@@ -174,9 +293,9 @@
           window._syncUnsubscribe();
           window._syncUnsubscribe = null;
         }
-        if (window._statesUnsubscribe) {
-          window._statesUnsubscribe();
-          window._statesUnsubscribe = null;
+        if (window._syncInterval) {
+          clearInterval(window._syncInterval);
+          window._syncInterval = null;
         }
       }
     });
@@ -262,11 +381,19 @@
         const state = await Store.getAppState(app.repoName);
         if (state) {
           await userRef.collection('states').doc(app.repoName).set({
-            payload: sanitizeFirestoreData(state),
+            payload: JSON.stringify(state), // JSON stringify to fully support nested arrays (e.g. TicTacX2 2D board)
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
           });
         }
       }
+
+      // Also push a changelog entry
+      const changeDoc = {
+        deviceId: getDeviceId(),
+        type: 'sync',
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      await userRef.collection('changelog').add(changeDoc);
     }
   };
 
